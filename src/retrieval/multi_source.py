@@ -3,6 +3,7 @@ from .crossref import CrossrefRetriever
 from .deduplicator import PaperDeduplicator
 from .models import PaperRecord
 from .openalex import OpenAlexRetriever
+from .relevance_filter import RelevanceFilter
 from .semantic_scholar import SemanticScholarRetriever
 
 
@@ -16,6 +17,7 @@ class MultiSourceRetriever:
         ]
 
         self.deduplicator = PaperDeduplicator()
+        self.relevance_filter = RelevanceFilter()
 
     def search(
         self,
@@ -55,4 +57,14 @@ class MultiSourceRetriever:
             f"{len(unique_papers)} papers"
         )
 
-        return unique_papers
+        relevant_papers = self.relevance_filter.filter(
+            papers=unique_papers,
+            query=query,
+        )
+
+        print(
+            f"After relevance filtering: "
+            f"{len(relevant_papers)} papers"
+        )
+
+        return relevant_papers
