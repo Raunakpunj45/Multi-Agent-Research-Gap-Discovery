@@ -1,0 +1,28 @@
+from dotenv import load_dotenv
+
+from src.retrieval.semantic_scholar import SemanticScholarRetriever
+load_dotenv()
+
+
+def main():
+    retriever = SemanticScholarRetriever()
+
+    papers = retriever.search(
+        query="large language models scientific discovery",
+        max_results=5
+    )
+
+    print(f"\nRetrieved {len(papers)} papers.\n")
+
+    for index, paper in enumerate(papers, start=1):
+        print(f"{index}. {paper.title}")
+        print(f"   Year: {paper.year}")
+        print(f"   Authors: {', '.join(paper.authors[:3])}")
+        print(f"   DOI: {paper.doi}")
+        print(f"   Source: {paper.source}")
+        print(f"   PDF: {paper.pdf_url}")
+        print()
+
+
+if __name__ == "__main__":
+    main()
