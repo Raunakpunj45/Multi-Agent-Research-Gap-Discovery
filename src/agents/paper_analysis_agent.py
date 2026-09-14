@@ -55,6 +55,21 @@ class PaperAnalysis(BaseModel):
     )
 
 
+class PaperAnalysisResult(BaseModel):
+    analysis: PaperAnalysis = Field(
+        description=(
+            "Structured analysis of the research paper."
+        )
+    )
+
+    evidence: list[RetrievedChunk] = Field(
+        description=(
+            "The retrieved evidence chunks used to produce "
+            "the paper analysis."
+        )
+    )
+
+
 class PaperAnalysisAgent:
     def __init__(
         self,
@@ -76,7 +91,7 @@ class PaperAnalysisAgent:
     def analyze(
         self,
         evidence_chunks: list[RetrievedChunk],
-    ) -> PaperAnalysis:
+    ) -> PaperAnalysisResult:
 
         if not evidence_chunks:
             raise ValueError(
@@ -121,7 +136,10 @@ class PaperAnalysisAgent:
                 "a structured analysis."
             )
 
-        return response.parsed
+        return PaperAnalysisResult(
+            analysis=response.parsed,
+            evidence=evidence_chunks,
+        )
 
     @staticmethod
     def _build_evidence(
@@ -138,6 +156,7 @@ class PaperAnalysisAgent:
                 f"--- Evidence Chunk {index} ---\n"
                 f"Chunk ID: {chunk.chunk_id}\n"
                 f"Paper ID: {chunk.paper_id}\n"
+                f"Distance: {chunk.distance}\n"
                 f"Text:\n{chunk.text}"
             )
 

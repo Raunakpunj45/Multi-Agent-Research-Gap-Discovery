@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from src.agents.paper_analysis_agent import (
-    PaperAnalysis,
     PaperAnalysisAgent,
+    PaperAnalysisResult,
 )
 from src.rag import (
     PaperIngestionPipeline,
@@ -39,7 +39,7 @@ class PaperAnalysisPipeline:
         pdf_path: str,
         analysis_query: str,
         top_k: int = 5,
-    ) -> PaperAnalysis:
+    ) -> PaperAnalysisResult:
 
         if not pdf_path.strip():
             raise ValueError(
@@ -88,11 +88,11 @@ class PaperAnalysisPipeline:
 
         print("\n=== PAPER ANALYSIS ===")
 
-        analysis = self.analysis_agent.analyze(
+        result = self.analysis_agent.analyze(
             evidence_chunks=evidence
         )
 
-        return analysis
+        return result
 
     @staticmethod
     def _get_paper_id(
