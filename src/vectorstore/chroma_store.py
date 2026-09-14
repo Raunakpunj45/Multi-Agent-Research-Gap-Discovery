@@ -41,11 +41,21 @@ class ChromaVectorStore:
         self,
         query_embedding: list[float],
         n_results: int = 3,
+        paper_id: str | None = None,
     ) -> dict:
 
+        query_kwargs = {
+            "query_embeddings": [query_embedding],
+            "n_results": n_results,
+        }
+
+        if paper_id:
+            query_kwargs["where"] = {
+                "paper_id": paper_id
+            }
+
         return self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results,
+            **query_kwargs
         )
 
     def count(self) -> int:

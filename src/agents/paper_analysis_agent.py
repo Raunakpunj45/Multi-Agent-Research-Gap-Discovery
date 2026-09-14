@@ -1,10 +1,11 @@
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
+
+from src.rag import RetrievedChunk
 
 
 load_dotenv()
@@ -14,14 +15,14 @@ class PaperAnalysis(BaseModel):
     problem: str = Field(
         description=(
             "The main research problem or objective addressed "
-            "by the paper."
+            "by the paper, based only on the provided evidence."
         )
     )
 
     methodology: str = Field(
         description=(
             "The main methodology, model, algorithm, or approach "
-            "used in the paper."
+            "used in the paper, based only on the provided evidence."
         )
     )
 
@@ -42,15 +43,14 @@ class PaperAnalysis(BaseModel):
     limitations: str = Field(
         description=(
             "Limitations, weaknesses, constraints, or unresolved "
-            "issues explicitly stated or clearly supported by "
-            "the paper."
+            "issues supported by the provided evidence."
         )
     )
 
     future_work: str = Field(
         description=(
             "Future research directions explicitly mentioned "
-            "or proposed by the paper."
+            "or supported by the provided evidence."
         )
     )
 
@@ -58,7 +58,7 @@ class PaperAnalysis(BaseModel):
 class PaperAnalysisAgent:
     def __init__(
         self,
-        model: str = "gemini-3.5-flash",
+        model: str = "gemini-3.5-flash-lite",
     ):
         api_key = os.getenv("GEMINI_API_KEY")
 
@@ -75,32 +75,37 @@ class PaperAnalysisAgent:
 
     def analyze(
         self,
-        paper_text: str,
+        evidence_chunks: list[RetrievedChunk],
     ) -> PaperAnalysis:
 
-        if not paper_text.strip():
+        if not evidence_chunks:
             raise ValueError(
-                "Paper text cannot be empty."
+                "Evidence chunks cannot be empty."
             )
+
+        evidence_text = self._build_evidence(
+            evidence_chunks
+        )
 
         system_instruction = (
             "You are a scientific Paper Analysis Agent. "
-            "Analyze the provided research paper text and "
-            "extract only information supported by the text. "
+            "Analyze the research paper using only the "
+            "provided retrieved evidence. "
+            "Do not use outside knowledge. "
             "Do not invent facts, datasets, methods, results, "
             "limitations, or future work. "
-            "If a requested aspect is not clearly available "
-            "in the provided text, explicitly state that the "
-            "information is not available in the provided text. "
+            "If a requested aspect is not supported by the "
+            "provided evidence, explicitly state that the "
+            "information is not available in the provided evidence. "
             "Keep the analysis concise but informative."
         )
 
         response = self.client.models.generate_content(
             model=self.model,
             contents=(
-                "Analyze the following research paper text "
-                "and produce a structured analysis.\n\n"
-                f"{paper_text}"
+                "Analyze the research paper from the following "
+                "retrieved evidence chunks.\n\n"
+                f"{evidence_text}"
             ),
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -117,3 +122,23 @@ class PaperAnalysisAgent:
             )
 
         return response.parsed
+
+    @staticmethod
+    def _build_evidence(
+        evidence_chunks: list[RetrievedChunk],
+    ) -> str:
+
+        evidence_parts = []
+
+        for index, chunk in enumerate(
+            evidence_chunks,
+            start=1,
+        ):
+            evidence_parts.append(
+                f"--- Evidence Chunk {index} ---\n"
+                f"Chunk ID: {chunk.chunk_id}\n"
+                f"Paper ID: {chunk.paper_id}\n"
+                f"Text:\n{chunk.text}"
+            )
+
+        return "\n\n".join(evidence_parts)
