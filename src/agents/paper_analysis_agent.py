@@ -1,3 +1,5 @@
+import time
+
 import os
 
 from dotenv import load_dotenv
@@ -9,6 +11,32 @@ from src.rag import RetrievedChunk
 
 
 load_dotenv()
+
+
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+RETRYABLE_MESSAGE_FRAGMENTS = (
+    "RESOURCE_EXHAUSTED",
+    "UNAVAILABLE",
+    "rate limit",
+    "quota",
+)
+
+
+def _is_retryable(error: Exception) -> bool:
+    status_code = getattr(error, "code", None)
+
+    if status_code in RETRYABLE_STATUS_CODES:
+        return True
+
+    message = str(error)
+
+    if any(str(code) in message for code in RETRYABLE_STATUS_CODES):
+        return True
+
+    return any(
+        fragment.lower() in message.lower()
+        for fragment in RETRYABLE_MESSAGE_FRAGMENTS
+    )
 
 
 class PaperAnalysis(BaseModel):
@@ -74,6 +102,9 @@ class PaperAnalysisAgent:
     def __init__(
         self,
         model: str = "gemini-3.5-flash-lite",
+        max_retries: int = 5,
+        base_backoff_seconds: float = 2.0,
+        max_backoff_seconds: float = 60.0,
     ):
         api_key = os.getenv("GEMINI_API_KEY")
 
@@ -87,6 +118,9 @@ class PaperAnalysisAgent:
         )
 
         self.model = model
+        self.max_retries = max_retries
+        self.base_backoff_seconds = base_backoff_seconds
+        self.max_backoff_seconds = max_backoff_seconds
 
     def analyze(
         self,
@@ -115,31 +149,66 @@ class PaperAnalysisAgent:
             "Keep the analysis concise but informative."
         )
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=(
-                "Analyze the research paper from the following "
-                "retrieved evidence chunks.\n\n"
-                f"{evidence_text}"
-            ),
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=PaperAnalysis,
-                temperature=0.2,
-            ),
+        parsed = self._generate_with_retry(
+            system_instruction=system_instruction,
+            evidence_text=evidence_text,
         )
 
-        if response.parsed is None:
+        if parsed is None:
             raise RuntimeError(
                 "Paper Analysis Agent failed to generate "
                 "a structured analysis."
             )
 
         return PaperAnalysisResult(
-            analysis=response.parsed,
+            analysis=parsed,
             evidence=evidence_chunks,
         )
+
+    def _generate_with_retry(
+        self,
+        system_instruction: str,
+        evidence_text: str,
+    ) -> PaperAnalysis | None:
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=(
+                        "Analyze the research paper from the following "
+                        "retrieved evidence chunks.\n\n"
+                        f"{evidence_text}"
+                    ),
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        response_mime_type="application/json",
+                        response_schema=PaperAnalysis,
+                        temperature=0.2,
+                    ),
+                )
+
+                return response.parsed
+
+            except Exception as error:
+
+                if attempt == self.max_retries or not _is_retryable(error):
+                    raise
+
+                wait_time = min(
+                    self.base_backoff_seconds * (2 ** (attempt - 1)),
+                    self.max_backoff_seconds,
+                )
+
+                print(
+                    f"Paper Analysis Agent request failed "
+                    f"({error}). Retrying in {wait_time:.0f}s... "
+                    f"(attempt {attempt}/{self.max_retries})"
+                )
+
+                time.sleep(wait_time)
+
+        return None
 
     @staticmethod
     def _build_evidence(

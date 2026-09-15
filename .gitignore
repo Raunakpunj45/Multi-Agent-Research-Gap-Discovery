@@ -8,3 +8,5 @@ chroma_db/
 
 data/papers/*
 data/processed/*
+demo_analysis_report.md
+demo_output.txt

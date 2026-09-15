@@ -1,3 +1,5 @@
+import time
+
 from src.embeddings import GeminiEmbeddingModel
 from src.processing import PDFExtractor, TextCleaner, TextChunker
 from src.vectorstore import ChromaVectorStore
@@ -11,6 +13,7 @@ class PaperIngestionPipeline:
         chunker: TextChunker | None = None,
         embedding_model: GeminiEmbeddingModel | None = None,
         vector_store: ChromaVectorStore | None = None,
+        embed_call_delay_seconds: float = 0.3,
     ):
         self.extractor = extractor or PDFExtractor()
         self.cleaner = cleaner or TextCleaner()
@@ -23,6 +26,12 @@ class PaperIngestionPipeline:
             vector_store
             or ChromaVectorStore()
         )
+        # Small pacing delay between successive embedding API calls.
+        # This proactively spreads out requests to reduce how often the
+        # free-tier RPM limit gets hit in the first place (in addition to
+        # the reactive retry/backoff already inside GeminiEmbeddingModel).
+        # Set to 0 to disable.
+        self.embed_call_delay_seconds = embed_call_delay_seconds
 
     def ingest(
         self,
@@ -63,7 +72,7 @@ class PaperIngestionPipeline:
         embeddings = []
         metadatas = []
 
-        for chunk in chunks:
+        for index, chunk in enumerate(chunks):
 
             embedding = self.embedding_model.embed(
                 chunk.text
@@ -79,6 +88,11 @@ class PaperIngestionPipeline:
                     "chunk_id": chunk.chunk_id,
                 }
             )
+
+            is_last_chunk = index == len(chunks) - 1
+
+            if self.embed_call_delay_seconds > 0 and not is_last_chunk:
+                time.sleep(self.embed_call_delay_seconds)
 
         self.vector_store.add(
             ids=ids,
