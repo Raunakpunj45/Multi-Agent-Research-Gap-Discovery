@@ -1,6 +1,6 @@
-from .gemini_embeddings import GeminiEmbeddingModel
+from .local_embeddings import LocalEmbeddingModel
 
 
 __all__ = [
-    "GeminiEmbeddingModel",
+    "LocalEmbeddingModel",
 ]

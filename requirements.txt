@@ -3,3 +3,4 @@ python-dotenv
 requests
 pymupdf
 chromadb
+sentence-transformers

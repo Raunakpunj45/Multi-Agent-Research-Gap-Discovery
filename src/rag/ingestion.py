@@ -1,6 +1,7 @@
+import hashlib
 import time
 
-from src.embeddings import GeminiEmbeddingModel
+from src.embeddings import LocalEmbeddingModel
 from src.processing import PDFExtractor, TextCleaner, TextChunker
 from src.vectorstore import ChromaVectorStore
 
@@ -11,27 +12,20 @@ class PaperIngestionPipeline:
         extractor: PDFExtractor | None = None,
         cleaner: TextCleaner | None = None,
         chunker: TextChunker | None = None,
-        embedding_model: GeminiEmbeddingModel | None = None,
+        embedding_model: LocalEmbeddingModel | None = None,
         vector_store: ChromaVectorStore | None = None,
-        embed_call_delay_seconds: float = 0.3,
     ):
         self.extractor = extractor or PDFExtractor()
         self.cleaner = cleaner or TextCleaner()
         self.chunker = chunker or TextChunker()
         self.embedding_model = (
             embedding_model
-            or GeminiEmbeddingModel()
+            or LocalEmbeddingModel()
         )
         self.vector_store = (
             vector_store
-            or ChromaVectorStore()
+            or ChromaVectorStore.for_embedder(self.embedding_model)
         )
-        # Small pacing delay between successive embedding API calls.
-        # This proactively spreads out requests to reduce how often the
-        # free-tier RPM limit gets hit in the first place (in addition to
-        # the reactive retry/backoff already inside GeminiEmbeddingModel).
-        # Set to 0 to disable.
-        self.embed_call_delay_seconds = embed_call_delay_seconds
 
     def ingest(
         self,
@@ -67,38 +61,48 @@ class PaperIngestionPipeline:
                 "No chunks were created from the PDF."
             )
 
-        ids = []
-        documents = []
-        embeddings = []
-        metadatas = []
+        hashes = {
+            chunk.chunk_id: hashlib.sha256(
+                chunk.text.encode("utf-8")
+            ).hexdigest()
+            for chunk in chunks
+        }
 
-        for index, chunk in enumerate(chunks):
-
-            embedding = self.embedding_model.embed(
-                chunk.text
+        # Unchanged paper already stored: skip embedding entirely.
+        if self.vector_store.get_chunk_hashes(paper_id) == hashes:
+            print(
+                f"Paper '{paper_id}' already ingested unchanged "
+                f"({len(chunks)} chunks); embedding skipped."
             )
+            return len(chunks)
 
-            ids.append(chunk.chunk_id)
-            documents.append(chunk.text)
-            embeddings.append(embedding)
+        # Changed or partial earlier ingest: drop its chunks so no stale
+        # ones survive, then store the fresh set (stable IDs + upsert).
+        self.vector_store.delete_paper(paper_id)
 
-            metadatas.append(
+        started = time.perf_counter()
+
+        embeddings = self.embedding_model.embed_documents(
+            [chunk.text for chunk in chunks]
+        )
+
+        print(
+            f"Embedded {len(chunks)} chunks locally in "
+            f"{time.perf_counter() - started:.1f}s (batched)."
+        )
+
+        self.vector_store.upsert(
+            ids=[chunk.chunk_id for chunk in chunks],
+            documents=[chunk.text for chunk in chunks],
+            embeddings=embeddings,
+            metadatas=[
                 {
                     "paper_id": chunk.paper_id,
                     "chunk_id": chunk.chunk_id,
+                    "text_hash": hashes[chunk.chunk_id],
                 }
-            )
-
-            is_last_chunk = index == len(chunks) - 1
-
-            if self.embed_call_delay_seconds > 0 and not is_last_chunk:
-                time.sleep(self.embed_call_delay_seconds)
-
-        self.vector_store.add(
-            ids=ids,
-            documents=documents,
-            embeddings=embeddings,
-            metadatas=metadatas,
+                for chunk in chunks
+            ],
         )
 
         return len(chunks)

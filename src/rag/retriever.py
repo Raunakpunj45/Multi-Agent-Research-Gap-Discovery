@@ -1,4 +1,4 @@
-from src.embeddings import GeminiEmbeddingModel
+from src.embeddings import LocalEmbeddingModel
 from src.vectorstore import ChromaVectorStore
 
 from .models import RetrievedChunk
@@ -7,17 +7,17 @@ from .models import RetrievedChunk
 class RAGRetriever:
     def __init__(
         self,
-        embedding_model: GeminiEmbeddingModel | None = None,
+        embedding_model: LocalEmbeddingModel | None = None,
         vector_store: ChromaVectorStore | None = None,
     ):
         self.embedding_model = (
             embedding_model
-            or GeminiEmbeddingModel()
+            or LocalEmbeddingModel()
         )
 
         self.vector_store = (
             vector_store
-            or ChromaVectorStore()
+            or ChromaVectorStore.for_embedder(self.embedding_model)
         )
 
     def retrieve(
@@ -37,7 +37,7 @@ class RAGRetriever:
                 "top_k must be greater than 0."
             )
 
-        query_embedding = self.embedding_model.embed(
+        query_embedding = self.embedding_model.embed_query(
             query
         )
 
