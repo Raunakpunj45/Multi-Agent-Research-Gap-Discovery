@@ -153,6 +153,29 @@ class ChromaVectorStore:
             )
         }
 
+
+    def delete_stale_chunks(
+        self,
+        paper_id: str,
+        keep_chunk_ids: list[str],
+    ) -> None:
+        """Delete outdated chunks while preserving the supplied chunk IDs."""
+        result = self.collection.get(
+            where={"paper_id": paper_id},
+            include=[],
+        )
+
+        stale_ids = [
+            chunk_id
+            for chunk_id in result["ids"]
+            if chunk_id not in set(keep_chunk_ids)
+        ]
+
+        if stale_ids:
+            self.collection.delete(ids=stale_ids)
+
+
+
     def delete_paper(self, paper_id: str) -> None:
         self.collection.delete(
             where={"paper_id": paper_id}

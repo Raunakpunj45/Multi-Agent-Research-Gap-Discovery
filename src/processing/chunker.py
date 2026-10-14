@@ -4,8 +4,8 @@ from .models import Chunk
 class TextChunker:
     def __init__(
         self,
-        chunk_size: int = 300,
-        overlap: int = 50,
+        chunk_size: int = 180,
+        overlap: int = 30,
     ):
         if overlap >= chunk_size:
             raise ValueError(

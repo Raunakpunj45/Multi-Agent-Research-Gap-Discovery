@@ -109,3 +109,34 @@ def test_local_collection_survives_reopening_in_fresh_objects(tmp_path):
     )
 
     assert retriever.retrieve("galaxy pulsar", top_k=1)[0].paper_id == "paperA"
+
+
+def test_embedding_failure_preserves_existing_chunks(tmp_path):
+    pipeline, embedder = build(tmp_path)
+
+    # First ingestion succeeds; save the existing paper.
+    pipeline.ingest("any.pdf", "paperA")
+    old_hashes = pipeline.vector_store.get_chunk_hashes("paperA")
+    old_count = pipeline.vector_store.count()
+
+    # Change the paper and make the next embedding call fail.
+    pipeline.extractor = FakeExtractor(
+        " ".join(QUANTUM)
+    )
+
+    def failing_embed_documents(texts):
+        raise RuntimeError("Simulated embedding failure")
+
+    embedder.embed_documents = failing_embed_documents
+
+    import pytest
+
+    with pytest.raises(
+        RuntimeError,
+        match="Simulated embedding failure",
+    ):
+        pipeline.ingest("any.pdf", "paperA")
+
+    # Previous chunks must remain untouched.
+    assert pipeline.vector_store.count() == old_count
+    assert pipeline.vector_store.get_chunk_hashes("paperA") == old_hashes
