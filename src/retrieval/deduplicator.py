@@ -1,3 +1,4 @@
+import dataclasses
 import re
 
 from .models import PaperRecord
@@ -10,32 +11,53 @@ class PaperDeduplicator:
     ) -> list[PaperRecord]:
 
         unique_papers = []
-        seen_dois = set()
-        seen_titles = set()
+        by_doi = {}
+        by_title = {}
 
         for paper in papers:
-
-            # DOI-based deduplication
-            if paper.doi:
-                doi = self._normalize_doi(paper.doi)
-
-                if doi in seen_dois:
-                    continue
-
-                seen_dois.add(doi)
-
-            # Title-based fallback
+            doi = (
+                self._normalize_doi(paper.doi)
+                if paper.doi
+                else None
+            )
             title = self._normalize_title(paper.title)
 
-            if title and title in seen_titles:
-                continue
+            kept = (
+                (by_doi.get(doi) if doi else None)
+                or (by_title.get(title) if title else None)
+            )
+
+            if kept is None:
+                # Copy, so merging never mutates the caller's records.
+                kept = dataclasses.replace(paper)
+                unique_papers.append(kept)
+            else:
+                self._merge(kept, paper)
+
+            # Re-register after merge: the kept record may have gained a DOI.
+            if kept.doi:
+                by_doi.setdefault(
+                    self._normalize_doi(kept.doi), kept
+                )
 
             if title:
-                seen_titles.add(title)
-
-            unique_papers.append(paper)
+                by_title.setdefault(title, kept)
 
         return unique_papers
+
+    @staticmethod
+    def _merge(kept: PaperRecord, other: PaperRecord) -> None:
+        """Fill fields the kept record lacks; never overwrite existing ones."""
+        for name in (
+            "doi",
+            "year",
+            "abstract",
+            "landing_url",
+            "pdf_url",
+            "authors",
+        ):
+            if not getattr(kept, name) and getattr(other, name):
+                setattr(kept, name, getattr(other, name))
 
     @staticmethod
     def _normalize_doi(doi: str) -> str:
