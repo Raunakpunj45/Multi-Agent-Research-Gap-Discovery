@@ -1,4 +1,6 @@
 
+import hashlib
+import re
 from pathlib import Path
 
 from src.agents.paper_analysis_agent import (
@@ -8,7 +10,10 @@ from src.agents.paper_analysis_agent import (
 from src.agents.cross_paper_comparison_agent import (
     CrossPaperComparison,
     CrossPaperComparisonAgent,
+    ExcludedPaper,
+    MultiPaperComparison,
 )
+from src.processing import PDFDownloader
 from src.rag import (
     PaperIngestionPipeline,
     RAGRetriever,
@@ -23,6 +28,7 @@ class PaperAnalysisPipeline:
         rag_retriever: RAGRetriever | None = None,
         analysis_agent: PaperAnalysisAgent | None = None,
         comparison_agent: CrossPaperComparisonAgent | None = None,
+        pdf_downloader: PDFDownloader | None = None,
     ):
         self.ingestion_pipeline = (
             ingestion_pipeline or PaperIngestionPipeline()
@@ -35,6 +41,9 @@ class PaperAnalysisPipeline:
         )
         self.comparison_agent = (
             comparison_agent or CrossPaperComparisonAgent()
+        )
+        self.pdf_downloader = (
+            pdf_downloader or PDFDownloader()
         )
 
     def analyze_paper(
@@ -130,6 +139,124 @@ class PaperAnalysisPipeline:
         )
 
         return comparison
+
+    def analyze_and_compare_papers(
+        self,
+        papers: list[PaperRecord],
+        analysis_query: str,
+        pdf_paths: dict[str, str] | None = None,
+        top_k: int = 5,
+        research_topic: str | None = None,
+        max_successful: int | None = None,
+    ) -> MultiPaperComparison:
+        """Analyze each paper, then produce ONE collective comparison.
+
+        A paper that fails (no PDF, download/ingestion/analysis error) is
+        skipped and listed in `excluded_papers`; it never aborts the run.
+        `pdf_paths` maps paper ID (see _get_paper_id) to a local PDF; papers
+        without an entry are downloaded from `paper.pdf_url`.
+        `max_successful` stops once that many papers were analyzed.
+        """
+
+        if not analysis_query.strip():
+            raise ValueError("Analysis query cannot be empty.")
+
+        results: list[PaperAnalysisResult] = []
+        excluded: list[ExcludedPaper] = []
+        seen_ids: set[str] = set()
+
+        for paper in papers:
+            if max_successful is not None and len(results) >= max_successful:
+                break
+
+            try:
+                paper_id = self._get_paper_id(paper)
+            except ValueError as error:
+                excluded.append(
+                    ExcludedPaper(
+                        paper_id=paper.title or "unknown",
+                        reason=str(error),
+                    )
+                )
+                continue
+
+            if paper_id in seen_ids:
+                continue
+
+            seen_ids.add(paper_id)
+
+            try:
+                pdf_path = self._resolve_pdf_path(
+                    paper, paper_id, pdf_paths
+                )
+
+                results.append(
+                    self.analyze_paper(
+                        paper=paper,
+                        pdf_path=pdf_path,
+                        analysis_query=analysis_query,
+                        top_k=top_k,
+                    )
+                )
+            except Exception as error:
+                print(f"SKIP {paper_id}: {type(error).__name__}: {error}")
+                excluded.append(
+                    ExcludedPaper(
+                        paper_id=paper_id,
+                        reason=f"{type(error).__name__}: {error}",
+                    )
+                )
+
+        if len(results) < 2:
+            raise ValueError(
+                f"Only {len(results)} paper(s) could be analyzed; at least "
+                f"2 are required. Exclusions: "
+                f"{[(e.paper_id, e.reason) for e in excluded]}"
+            )
+
+        print(
+            f"\n========== COLLECTIVE COMPARISON "
+            f"({len(results)} papers) =========="
+        )
+
+        comparison = self.comparison_agent.compare_many(
+            results,
+            research_topic=research_topic,
+        )
+
+        comparison.excluded_papers.extend(excluded)
+
+        return comparison
+
+    def _resolve_pdf_path(
+        self,
+        paper: PaperRecord,
+        paper_id: str,
+        pdf_paths: dict[str, str] | None,
+    ) -> str:
+
+        if pdf_paths and pdf_paths.get(paper_id):
+            return pdf_paths[paper_id]
+
+        if not paper.pdf_url:
+            raise ValueError("No PDF path or PDF URL available.")
+
+        # Paper IDs can be URLs or DOIs, so use a filesystem-safe file name.
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", paper_id).strip("_")[:60]
+        digest = hashlib.sha1(paper_id.encode("utf-8")).hexdigest()[:8]
+        file_id = f"{slug or 'paper'}_{digest}"
+
+        existing = self.pdf_downloader.output_dir / f"{file_id}.pdf"
+
+        if existing.exists():
+            return str(existing)
+
+        return str(
+            self.pdf_downloader.download(
+                pdf_url=paper.pdf_url,
+                paper_id=file_id,
+            )
+        )
 
     @staticmethod
     def _get_paper_id(paper: PaperRecord) -> str:
