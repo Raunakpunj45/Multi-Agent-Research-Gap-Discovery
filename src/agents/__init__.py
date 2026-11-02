@@ -15,6 +15,15 @@ from .cross_paper_comparison_agent import (
     MultiPaperComparison,
     UnderexploredDirection,
 )
+from .research_gap_detection_agent import (
+    ExcludedGapCandidate,
+    GapCategory,
+    GapConfidence,
+    GapOrigin,
+    ResearchGap,
+    ResearchGapDetectionAgent,
+    ResearchGapDetectionResult,
+)
 
 __all__ = [
     "SearchPlan",
@@ -33,4 +42,11 @@ __all__ = [
     "ExcludedPaper",
     "MultiPaperComparison",
     "UnderexploredDirection",
+    "ExcludedGapCandidate",
+    "GapCategory",
+    "GapConfidence",
+    "GapOrigin",
+    "ResearchGap",
+    "ResearchGapDetectionAgent",
+    "ResearchGapDetectionResult",
 ]
