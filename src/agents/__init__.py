@@ -24,6 +24,17 @@ from .research_gap_detection_agent import (
     ResearchGapDetectionAgent,
     ResearchGapDetectionResult,
 )
+from .evidence_validation_agent import (
+    EvidenceContradiction,
+    EvidenceValidation,
+    EvidenceValidationAgent,
+    EvidenceValidationResult,
+    EvidenceValidationStatus,
+    GapSupportStatus,
+    GapValidation,
+    GapValidationStatus,
+    JointGapAssessment,
+)
 
 __all__ = [
     "SearchPlan",
@@ -49,4 +60,13 @@ __all__ = [
     "ResearchGap",
     "ResearchGapDetectionAgent",
     "ResearchGapDetectionResult",
+    "EvidenceValidationStatus",
+    "GapSupportStatus",
+    "GapValidationStatus",
+    "EvidenceValidation",
+    "GapValidation",
+    "EvidenceValidationResult",
+    "EvidenceValidationAgent",
+    "JointGapAssessment",
+    "EvidenceContradiction",
 ]

@@ -81,3 +81,18 @@ def test_paper_filter_hashes_and_delete(tmp_path):
 
     s.delete_paper("A")
     assert s.count() == 1 and s.get_chunk_hashes("A") == {}
+
+
+def test_exact_chunk_retrieval_preserves_order_and_reports_missing(tmp_path):
+    s = store(tmp_path)
+    put(s, ["c1", "c2"])
+
+    result = s.get_chunks_by_ids(["c2", "missing", "c1"])
+
+    assert [chunk["chunk_id"] for chunk in result.chunks] == ["c2", "c1"]
+    assert result.chunks[0] == {
+        "chunk_id": "c2", "text": "text c2",
+        "metadata": {"paper_id": "p1", "chunk_id": "c2", "text_hash": "hc2"},
+    }
+    assert result.missing_ids == ["missing"]
+    assert s.get_chunks_by_ids([]).chunks == []

@@ -1,10 +1,19 @@
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import chromadb
 
 
 BASE_COLLECTION_NAME = "research_papers"
+
+
+@dataclass
+class ExactChunkRetrieval:
+    """Exact chunk records returned in requested order, plus missing IDs."""
+
+    chunks: list[dict]
+    missing_ids: list[str]
 
 
 def collection_name_for(
@@ -137,6 +146,29 @@ class ChromaVectorStore:
 
         return self.collection.query(
             **query_kwargs
+        )
+
+    def get_chunks_by_ids(self, chunk_ids: list[str]) -> ExactChunkRetrieval:
+        """Retrieve documents by exact Chroma record IDs; never uses similarity."""
+        if not chunk_ids:
+            return ExactChunkRetrieval(chunks=[], missing_ids=[])
+
+        result = self.collection.get(ids=chunk_ids, include=["documents", "metadatas"])
+        records = {
+            chunk_id: {
+                "chunk_id": chunk_id,
+                "text": document,
+                "metadata": metadata or {},
+            }
+            for chunk_id, document, metadata in zip(
+                result.get("ids", []),
+                result.get("documents", []),
+                result.get("metadatas", []),
+            )
+        }
+        return ExactChunkRetrieval(
+            chunks=[records[cid] for cid in chunk_ids if cid in records],
+            missing_ids=list(dict.fromkeys(cid for cid in chunk_ids if cid not in records)),
         )
 
     def get_chunk_hashes(self, paper_id: str) -> dict[str, str | None]:
