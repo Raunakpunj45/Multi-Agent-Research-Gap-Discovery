@@ -35,6 +35,18 @@ from .evidence_validation_agent import (
     GapValidationStatus,
     JointGapAssessment,
 )
+from .critic_agent import (
+    CriticAgent,
+    CriticDecision,
+    CriticResult,
+    CriticReviewStatus,
+    Criticism,
+    CriticismCategory,
+    CriticismSeverity,
+    GapCriticReview,
+    GapOriginAssessment,
+    RevisionSuggestion,
+)
 
 __all__ = [
     "SearchPlan",
@@ -69,4 +81,14 @@ __all__ = [
     "EvidenceValidationAgent",
     "JointGapAssessment",
     "EvidenceContradiction",
+    "CriticAgent",
+    "CriticDecision",
+    "CriticResult",
+    "CriticReviewStatus",
+    "Criticism",
+    "CriticismCategory",
+    "CriticismSeverity",
+    "GapCriticReview",
+    "GapOriginAssessment",
+    "RevisionSuggestion",
 ]

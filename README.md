@@ -12,6 +12,10 @@ Evidence-Grounded Multi-Agent Framework for Automated Research Gap Discovery wit
 - Local embeddings and ChromaDB vector storage
 - Semantic retrieval and basic RAG
 - Paper Analysis Agent
+- Cross-Paper Comparison Agent
+- Research Gap Detection Agent
+- Evidence Validation Agent
+- Critic Agent
 
 ## Embeddings (local only)
 
@@ -41,10 +45,6 @@ python experiments/smoke_local_embeddings.py data\papers\test_paper.pdf
 
 ## Future Scope
 
-- Cross-paper comparison
-- Research gap detection
-- Evidence validation
-- Critic agent
 - Human-in-the-loop validation
 - Research question/hypothesis generation
 - Evaluation
