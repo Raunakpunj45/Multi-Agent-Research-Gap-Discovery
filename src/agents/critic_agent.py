@@ -1,7 +1,10 @@
 """Critique the complete evidence-grounded research gap reasoning chain."""
+import hashlib
 import os
 import re
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from enum import Enum
 
 from dotenv import load_dotenv
@@ -86,6 +89,7 @@ class CriticResult(BaseModel):
     missing_inputs: list[str] = Field(default_factory=list)
     caveats: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+    input_fingerprints: dict[str, str] = Field(default_factory=dict)
 
 
 class _LLMCriticism(BaseModel):
@@ -122,15 +126,108 @@ class _LLMCriticResult(BaseModel):
 
 def _safe_assessment_error(error: Exception) -> str:
     """Summarize a provider failure without persisting its response payload."""
-    code = getattr(error, "code", None)
-    if not isinstance(code, int):
-        match = re.search(r"\b(429|5\d{2})\b", str(error))
-        code = int(match.group(1)) if match else None
+    code = _error_code(error)
     if code == 429:
         return "Critic assessment failed: API quota exhausted (HTTP 429)."
     if code is not None:
         return f"Critic assessment failed: provider API error (HTTP {code})."
     return "Critic assessment failed: model assessment unavailable."
+
+
+FINGERPRINT_INPUTS = ("comparison", "gap_detection", "evidence_validation")
+
+
+def fingerprint_inputs(payloads: dict[str, bytes | None]) -> dict[str, str]:
+    """SHA-256 hashes of the exact source bytes supplied to a pipeline run."""
+    return {
+        name: hashlib.sha256(payloads[name]).hexdigest()
+        for name in FINGERPRINT_INPUTS
+        if payloads.get(name) is not None
+    }
+
+
+def _error_code(error: Exception) -> int | None:
+    for candidate in (
+        getattr(error, "code", None),
+        getattr(error, "status_code", None),
+        getattr(getattr(error, "response", None), "status_code", None),
+    ):
+        try:
+            code = int(candidate)
+        except (TypeError, ValueError):
+            continue
+        if 400 <= code <= 599:
+            return code
+    match = re.search(r"\b(429|5\d{2})\b", str(error))
+    return int(match.group(1)) if match else None
+
+
+def _is_daily_quota_exhaustion(error: Exception) -> bool:
+    message = str(error).casefold()
+    return _error_code(error) == 429 and bool(re.search(
+        r"daily|per[ _-]?day|day[ _-]?quota|quota.{0,100}(?:day|daily)|"
+        r"(?:day|daily).{0,100}quota",
+        message,
+    ))
+
+
+def _provider_retry_after(error: Exception) -> float | None:
+    """Read common HTTP and Google retry-delay fields without requiring a provider type."""
+    for name in ("retry_after_seconds", "retry_after"):
+        value = getattr(error, name, None)
+        if value is not None:
+            try:
+                return max(0.0, float(value))
+            except (TypeError, ValueError):
+                pass
+
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    if headers is not None:
+        retry_after = headers.get("Retry-After") or headers.get("retry-after")
+        if retry_after:
+            try:
+                return max(0.0, float(retry_after))
+            except (TypeError, ValueError):
+                try:
+                    target = parsedate_to_datetime(retry_after)
+                    if target.tzinfo is None:
+                        target = target.replace(tzinfo=timezone.utc)
+                    return max(0.0, (target - datetime.now(timezone.utc)).total_seconds())
+                except (TypeError, ValueError, OverflowError):
+                    pass
+
+    details = getattr(error, "details", None)
+    if callable(details):
+        try:
+            details = details()
+        except Exception:
+            details = None
+
+    def find_retry_delay(value):
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                if str(key).casefold().replace("_", "") == "retrydelay":
+                    if isinstance(nested, (int, float)):
+                        return max(0.0, float(nested))
+                    if isinstance(nested, str):
+                        match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)s\s*", nested)
+                        if match:
+                            return float(match.group(1))
+                found = find_retry_delay(nested)
+                if found is not None:
+                    return found
+        elif isinstance(value, list):
+            for nested in value:
+                found = find_retry_delay(nested)
+                if found is not None:
+                    return found
+        return None
+
+    retry_delay = find_retry_delay(details)
+    if retry_delay is not None:
+        return retry_delay
+    return None
 
 
 class CriticAgent:
@@ -182,7 +279,9 @@ class CriticAgent:
 
     def critique(self, comparison: MultiPaperComparison | None,
                  gap_detection: ResearchGapDetectionResult | None,
-                 evidence_validation: EvidenceValidationResult | None) -> CriticResult:
+                 evidence_validation: EvidenceValidationResult | None,
+                 input_fingerprints: dict[str, str] | None = None,
+                 previous_result: CriticResult | None = None) -> CriticResult:
         """Critique provided outputs; missing inputs produce safe incomplete results."""
         missing = []
         if comparison is None:
@@ -197,6 +296,7 @@ class CriticAgent:
                 research_topic=topic, review_status=CriticReviewStatus.INCOMPLETE,
                 missing_inputs=missing,
                 caveats=["No gap definitions were available to review."],
+                input_fingerprints=input_fingerprints or {},
             )
 
         reviews = []
@@ -209,12 +309,14 @@ class CriticAgent:
                 research_topic=topic, review_status=CriticReviewStatus.INCOMPLETE,
                 gap_reviews=reviews, missing_inputs=missing,
                 caveats=["Missing inputs prevent a complete review of the reasoning chain."],
+                input_fingerprints=input_fingerprints or {},
             )
 
         if not gap_detection.gaps:
             return CriticResult(
                 research_topic=topic, review_status=CriticReviewStatus.COMPLETE,
                 caveats=["No candidate research gaps were supplied for review."],
+                input_fingerprints=input_fingerprints or {},
             )
 
         integrity_errors = self._input_integrity_errors(
@@ -230,24 +332,47 @@ class CriticAgent:
                 gap_reviews=reviews,
                 caveats=["Input integrity checks failed; Gemini was not called."],
                 errors=integrity_errors,
+                input_fingerprints=input_fingerprints or {},
             )
 
         evidence_index = self._build_evidence_index(
             comparison, gap_detection, evidence_validation
         )
-        contents = self._build_contents(
-            comparison, gap_detection, evidence_validation, evidence_index
-        )
-        try:
-            parsed = self._generate(contents)
-            mapped, mapping_errors = self._map_reviews(
-                parsed, gap_detection.gaps, evidence_index
+        reviews = []
+        errors = []
+        caveats = []
+        daily_quota_exhausted = False
+        validation_by_id = {
+            item.gap_id: item for item in evidence_validation.gap_validations
+        }
+        for gap in gap_detection.gaps:
+            cached = self._matching_previous_review(
+                gap.gap_id, input_fingerprints or {}, previous_result
             )
-            validation_by_id = {
-                item.gap_id: item for item in evidence_validation.gap_validations
-            }
-            for review in mapped:
-                validation = validation_by_id[review.gap_id]
+            if cached is not None:
+                reviews.append(cached.model_copy(update={
+                    "caveats": list(dict.fromkeys(cached.caveats + [
+                        "Reused a previously successful review because all input fingerprints match."
+                    ])),
+                }))
+                continue
+            if daily_quota_exhausted:
+                reviews.append(self._incomplete_review(
+                    gap, "Critic assessment was not attempted because daily API quota was exhausted."
+                ))
+                continue
+            one_gap_detection = gap_detection.model_copy(update={"gaps": [gap]})
+            contents = self._build_contents(
+                comparison, one_gap_detection, evidence_validation, evidence_index
+            )
+            try:
+                parsed = self._generate(contents)
+                mapped, mapping_errors = self._map_reviews(
+                    parsed, [gap], evidence_index
+                )
+                errors.extend(f"{gap.gap_id}: {message}" for message in mapping_errors)
+                review = mapped[0]
+                validation = validation_by_id[gap.gap_id]
                 evidence_incomplete = (
                     validation.status.value == "VALIDATION_INCOMPLETE"
                     or validation.joint_assessment is None
@@ -261,27 +386,44 @@ class CriticAgent:
                     review.caveats.append(
                         "Evidence validation is incomplete; this gap cannot be accepted until missing or failed evidence checks are resolved."
                     )
-            complete = not mapping_errors and all(
-                review.review_status is CriticReviewStatus.COMPLETE for review in mapped
-            )
-            return CriticResult(
-                research_topic=topic,
-                review_status=(CriticReviewStatus.COMPLETE if complete
-                               else CriticReviewStatus.INCOMPLETE),
-                gap_reviews=mapped,
-                caveats=parsed.caveats,
-                errors=mapping_errors,
-            )
-        except Exception as error:
-            failure = _safe_assessment_error(error)
-            failures = [failure]
-            failed_reviews = [self._incomplete_review(gap, failures[0])
-                              for gap in gap_detection.gaps]
-            return CriticResult(
-                research_topic=topic, review_status=CriticReviewStatus.INCOMPLETE,
-                gap_reviews=failed_reviews, errors=failures,
-                caveats=["No critic conclusions were accepted because model assessment failed."],
-            )
+                reviews.append(review)
+                caveats.extend(parsed.caveats)
+            except Exception as error:
+                failure = _safe_assessment_error(error)
+                errors.append(f"{gap.gap_id}: {failure}")
+                reviews.append(self._incomplete_review(gap, failure))
+                if _is_daily_quota_exhaustion(error):
+                    daily_quota_exhausted = True
+                    caveats.append(
+                        "Daily API quota was exhausted; remaining gap assessments were not attempted."
+                    )
+
+        complete = not errors and all(
+            review.review_status is CriticReviewStatus.COMPLETE for review in reviews
+        )
+        return CriticResult(
+            research_topic=topic,
+            review_status=(CriticReviewStatus.COMPLETE if complete
+                           else CriticReviewStatus.INCOMPLETE),
+            gap_reviews=reviews,
+            caveats=list(dict.fromkeys(caveats)),
+            errors=errors,
+            input_fingerprints=input_fingerprints or {},
+        )
+
+    @staticmethod
+    def _matching_previous_review(
+        gap_id: str, input_fingerprints: dict[str, str],
+        previous: CriticResult | None,
+    ) -> GapCriticReview | None:
+        """Return one prior COMPLETE review only for an exact all-input match."""
+        if (previous is None or set(input_fingerprints) != set(FINGERPRINT_INPUTS)
+                or previous.input_fingerprints != input_fingerprints):
+            return None
+        matches = [item for item in previous.gap_reviews if item.gap_id == gap_id]
+        if len(matches) != 1 or matches[0].review_status is not CriticReviewStatus.COMPLETE:
+            return None
+        return matches[0]
     @staticmethod
     def _incomplete_review(gap: ResearchGap, reason: str) -> GapCriticReview:
         return GapCriticReview(
@@ -505,10 +647,19 @@ class CriticAgent:
                 return (response.parsed if isinstance(response.parsed, _LLMCriticResult)
                         else _LLMCriticResult.model_validate(response.parsed))
             except Exception as error:
-                if attempt == self.max_retries or not _is_retryable(error):
+                if (_is_daily_quota_exhaustion(error)
+                        or attempt == self.max_retries or not _is_retryable(error)):
                     raise
-                delay = min(self.base_backoff_seconds * (2 ** (attempt - 1)),
-                            self.max_backoff_seconds)
+                provider_delay = _provider_retry_after(error)
+                if provider_delay is not None:
+                    # Never retry before provider guidance. If its wait exceeds
+                    # the configured bound, fail closed instead of violating it.
+                    if provider_delay > self.max_backoff_seconds:
+                        raise
+                    delay = provider_delay
+                else:
+                    delay = min(self.base_backoff_seconds * (2 ** (attempt - 1)),
+                                self.max_backoff_seconds)
                 time.sleep(delay)
         raise RuntimeError("Critic Agent exhausted retries without a result.")
 

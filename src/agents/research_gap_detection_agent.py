@@ -9,6 +9,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from .artifact_provenance import ArtifactProvenance
 from .cross_paper_comparison_agent import (
     EvidenceRef,
     MultiPaperComparison,
@@ -96,6 +97,8 @@ class ResearchGapDetectionResult(BaseModel):
         default_factory=list
     )
     caveats: list[str]
+    # Optional for historical parsing; saved-artifact consumers require it.
+    provenance: ArtifactProvenance | None = None
 
 
 # ---------------------------------------------------------------------------

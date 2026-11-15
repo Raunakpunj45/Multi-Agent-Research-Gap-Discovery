@@ -11,8 +11,11 @@ The comparison JSON does not store the research topic, so --topic is optional
 and is never guessed; without it the topic is reported as None.
 """
 import argparse
+import hashlib
 import json
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -24,6 +27,10 @@ from src.agents import (
     MultiPaperComparison,
     ResearchGapDetectionAgent,
     ResearchGapDetectionResult,
+)
+from src.agents.artifact_provenance import (
+    ArtifactProvenance,
+    require_recorded_fingerprint,
 )
 
 INPUT_PATH = ROOT_DIR / "data" / "processed" / "multi_paper_comparison.json"
@@ -109,6 +116,13 @@ def main() -> None:
     args = parser.parse_args()
 
     comparison = load_comparison(INPUT_PATH)
+    comparison_bytes = INPUT_PATH.read_bytes()
+    try:
+        require_recorded_fingerprint(
+            comparison.provenance, "paper_analyses", "Comparison artifact",
+        )
+    except ValueError as error:
+        fail(str(error))
     print(f"Loaded comparison: {comparison.paper_count} papers, "
           f"{len(comparison.recurring_patterns)} recurring patterns, "
           f"{len(comparison.common_limitations)} common limitations, "
@@ -126,7 +140,25 @@ def main() -> None:
     print_gaps(result)
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+    result.provenance = ArtifactProvenance(
+        stage="research_gap_detection",
+        input_fingerprints={"comparison": hashlib.sha256(comparison_bytes).hexdigest()},
+    )
+    temp_name = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=OUTPUT_PATH.parent,
+            prefix=f".{OUTPUT_PATH.name}.", suffix=".tmp", delete=False,
+        ) as temp_file:
+            temp_name = temp_file.name
+            temp_file.write(result.model_dump_json(indent=2))
+            temp_file.write("\n")
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(temp_name, OUTPUT_PATH)
+    finally:
+        if temp_name and os.path.exists(temp_name):
+            os.unlink(temp_name)
     print(f"\nSaved: {OUTPUT_PATH}")
 
 

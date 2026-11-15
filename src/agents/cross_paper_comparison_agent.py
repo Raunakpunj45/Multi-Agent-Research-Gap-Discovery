@@ -8,6 +8,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from .artifact_provenance import ArtifactProvenance, fingerprint_json
 from .paper_analysis_agent import PaperAnalysisResult, _is_retryable
 
 
@@ -123,6 +124,8 @@ class MultiPaperComparison(BaseModel):
     underexplored_directions: list[UnderexploredDirection]
     caveats: list[str]
     excluded_papers: list[ExcludedPaper] = Field(default_factory=list)
+    # Optional for parsing historical artifacts; downstream runners require it.
+    provenance: ArtifactProvenance | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -323,12 +326,11 @@ class CrossPaperComparisonAgent:
         research_topic: str | None = None,
     ) -> MultiPaperComparison:
         index, papers_text = self._prepare(results)
-
-        parsed = self._generate_with_retry(
-            contents=self._build_contents(
-                papers_text, len(results), research_topic
-            )
+        contents = self._build_contents(
+            papers_text, len(results), research_topic
         )
+
+        parsed = self._generate_with_retry(contents=contents)
 
         if parsed is None:
             raise RuntimeError(
@@ -336,7 +338,14 @@ class CrossPaperComparisonAgent:
                 "a structured comparison."
             )
 
-        return self._validate(parsed, index)
+        comparison = self._validate(parsed, index)
+        comparison.provenance = ArtifactProvenance(
+            stage="cross_paper_comparison",
+            input_fingerprints={
+                "paper_analyses": fingerprint_json(contents),
+            },
+        )
+        return comparison
 
     def _prepare(
         self,

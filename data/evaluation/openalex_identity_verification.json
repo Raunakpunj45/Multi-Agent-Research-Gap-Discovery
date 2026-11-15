@@ -1,0 +1,379 @@
+{
+  "report_title": "OpenAlex identity verification for the six included evaluation papers",
+  "checked_date": "2026-11-15",
+  "verification_method": "Read-only GET requests to the official OpenAlex Works API; local PDF front matter and manifest inspected offline.",
+  "manifest_path": "data/evaluation/dataset_manifest.jsonl",
+  "api_fields_requested": [
+    "id",
+    "title",
+    "authorships",
+    "publication_year",
+    "primary_location",
+    "locations",
+    "doi"
+  ],
+  "api_summary": {
+    "requests": 6,
+    "match": 0,
+    "mismatch": 0,
+    "not_found": 6,
+    "network_errors": 0
+  },
+  "notes": [
+    "All six supplied Work IDs returned HTTP 404 Not Found; no OpenAlex title/authorship/year/venue/DOI data was available for exact ID-to-paper verification.",
+    "Local PDF front matter matches the manifest bibliographic fields for the six records; no PDF-to-manifest mismatches were found.",
+    "DOIs are printed and match the manifest for records that specify a DOI. The three conference PDFs without printed DOI also have null DOI in the manifest.",
+    "PDF embedded title/author properties are incomplete for most files; printed front matter was used for PDF identity comparison.",
+    "No IDs were changed or inferred."
+  ],
+  "results": [
+    {
+      "paper_id": "https://openalex.org/W4402683817",
+      "openalex_id": "W4402683817",
+      "api_request_url": "https://api.openalex.org/works/W4402683817?select=id,title,authorships,publication_year,primary_location,locations,doi",
+      "api_http_status": 404,
+      "api_result": "NOT FOUND",
+      "api_error": "HTTP 404 Not Found; no OpenAlex work fields were returned.",
+      "retrieved_openalex_identity": null,
+      "pdf_path": "data/papers/https_openalex_org_W4402683817_ceec3a3b.pdf",
+      "pdf_identity": {
+        "title": "Large Language Models for Automated Open-domain Scientific Hypotheses Discovery",
+        "authors": [
+          "Zonglin Yang",
+          "Xinya Du",
+          "Junxian Li",
+          "Jie Zheng",
+          "Soujanya Poria",
+          "Erik Cambria"
+        ],
+        "publication_year": 2024,
+        "venue": "Findings of the Association for Computational Linguistics: ACL 2024",
+        "doi": null,
+        "pdf_document_properties": {
+          "title": null,
+          "author": null,
+          "subject": null
+        },
+        "front_matter_excerpt": "Findings of the Association for Computational Linguistics: ACL 2024, pages 13545–13565 August 11-16, 2024 ©2024 Association for Computational Linguistics Large Language Models for Automated Open-domain Scientific Hypotheses Discovery Zonglin Yang1, Xinya Du2, Junxian Li1, Jie Zheng3, Soujanya Poria4, Erik Cambria1 1 Nanyang Technological University 2 University of Texas at Dallas 3 Huazhong University of Science and Technology 4 Singapore University of Technology and Design {zonglin001,junxian001,cambria}@ntu.edu.sg, xinya.du@utdallas.edu jie.jay.zheng@gmail.com, sporia@sutd.edu.sg Abstract Hypothetical induction is recognized as the main reasoning type when scientists make ob- servations ab"
+      },
+      "manifest_identity": {
+        "title": "Large Language Models for Automated Open-domain Scientific Hypotheses Discovery",
+        "authors": [
+          "Zonglin Yang",
+          "Xinya Du",
+          "Junxian Li",
+          "Jie Zheng",
+          "Soujanya Poria",
+          "Erik Cambria"
+        ],
+        "publication_year": 2024,
+        "venue": "Findings of the Association for Computational Linguistics: ACL 2024",
+        "doi": null
+      },
+      "pdf_manifest_field_comparison": {
+        "title": "MATCH",
+        "authors": "MATCH",
+        "publication_year": "MATCH",
+        "venue": "MATCH",
+        "doi": "MATCH (both absent)"
+      },
+      "pdf_manifest_identity": "MATCH",
+      "openalex_id_to_paper_identity": "NOT FOUND",
+      "required_action": "Do not replace the ID automatically. Resolve this exact OpenAlex ID through a successful official Works API response or reviewed OpenAlex metadata; compare work ID, title, authors, year, venue, and DOI to the PDF before marking verified."
+    },
+    {
+      "paper_id": "https://openalex.org/W4404782812",
+      "openalex_id": "W4404782812",
+      "api_request_url": "https://api.openalex.org/works/W4404782812?select=id,title,authorships,publication_year,primary_location,locations,doi",
+      "api_http_status": 404,
+      "api_result": "NOT FOUND",
+      "api_error": "HTTP 404 Not Found; no OpenAlex work fields were returned.",
+      "retrieved_openalex_identity": null,
+      "pdf_path": "data/papers/https_openalex_org_W4404782812_d7bb4557.pdf",
+      "pdf_identity": {
+        "title": "A Comprehensive Survey of Scientific Large Language Models and Their Applications in Scientific Discovery",
+        "authors": [
+          "Yu Zhang",
+          "Xiusi Chen",
+          "Bowen Jin",
+          "Sheng Wang",
+          "Shuiwang Ji",
+          "Wei Wang",
+          "Jiawei Han"
+        ],
+        "publication_year": 2024,
+        "venue": "Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing",
+        "doi": null,
+        "pdf_document_properties": {
+          "title": null,
+          "author": null,
+          "subject": null
+        },
+        "front_matter_excerpt": "Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing, pages 8783–8817 November 12-16, 2024 ©2024 Association for Computational Linguistics A Comprehensive Survey of Scientific Large Language Models and Their Applications in Scientific Discovery Yu Zhang♣∗, Xiusi Chen♢♣∗, Bowen Jin♣∗, Sheng Wang♡, Shuiwang Ji♠, Wei Wang♢, Jiawei Han♣ ♣University of Illinois at Urbana-Champaign ♢University of California, Los Angeles ♡University of Washington, Seattle ♠Texas A&M University {yuz9,bowenj4,hanj}@illinois.edu {xchen,weiwang}@cs.ucla.edu swang@cs.washington.edu sji@tamu.edu Abstract In many scientific fields, large language mod- els (LLMs) have revolutionized the wa"
+      },
+      "manifest_identity": {
+        "title": "A Comprehensive Survey of Scientific Large Language Models and Their Applications in Scientific Discovery",
+        "authors": [
+          "Yu Zhang",
+          "Xiusi Chen",
+          "Bowen Jin",
+          "Sheng Wang",
+          "Shuiwang Ji",
+          "Wei Wang",
+          "Jiawei Han"
+        ],
+        "publication_year": 2024,
+        "venue": "Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing",
+        "doi": null
+      },
+      "pdf_manifest_field_comparison": {
+        "title": "MATCH",
+        "authors": "MATCH",
+        "publication_year": "MATCH",
+        "venue": "MATCH",
+        "doi": "MATCH (both absent)"
+      },
+      "pdf_manifest_identity": "MATCH",
+      "openalex_id_to_paper_identity": "NOT FOUND",
+      "required_action": "Do not replace the ID automatically. Resolve this exact OpenAlex ID through a successful official Works API response or reviewed OpenAlex metadata; compare work ID, title, authors, year, venue, and DOI to the PDF before marking verified."
+    },
+    {
+      "paper_id": "https://openalex.org/W4410862096",
+      "openalex_id": "W4410862096",
+      "api_request_url": "https://api.openalex.org/works/W4410862096?select=id,title,authorships,publication_year,primary_location,locations,doi",
+      "api_http_status": 404,
+      "api_result": "NOT FOUND",
+      "api_error": "HTTP 404 Not Found; no OpenAlex work fields were returned.",
+      "retrieved_openalex_identity": null,
+      "pdf_path": "data/papers/https_openalex_org_W4410862096_4dcf1f0d.pdf",
+      "pdf_identity": {
+        "title": "Constitutive scientific generative agent (CSGA): Leveraging large language models for automated constitutive model discovery",
+        "authors": [
+          "Marius Tacke",
+          "Matthias Busch",
+          "Kartik Bali",
+          "Kian Abdolazizi",
+          "Kevin Linka",
+          "Christian Cyron",
+          "Roland Aydin"
+        ],
+        "publication_year": 2025,
+        "venue": "Machine Learning for Computational Science and Engineering",
+        "doi": "10.1007/s44379-025-00022-2",
+        "pdf_document_properties": {
+          "title": null,
+          "author": null,
+          "subject": null
+        },
+        "front_matter_excerpt": "Machine Learning for Computational Science and Engineering (2025) 1:23 https://doi.org/10.1007/s44379-025-00022-2 RESEARCH Constitutive scientiﬁc generative agent (CSGA): Leveraging large language models for automated constitutive model discovery Marius Tacke1 · Matthias Busch2 · Kartik Bali1 · Kian Abdolazizi2 · Kevin Linka2 · Christian Cyron1,2 · Roland Aydin1,2 Received: 28 March 2025 / Accepted: 28 April 2025 / Published online: 29 May 2025 © The Author(s) 2025 Abstract Data-driven approaches for constitutive modeling enable rapid, automated generation of models that predict a material’s mechanical response under load. Integrating theoretical knowledge into these approaches, which are th"
+      },
+      "manifest_identity": {
+        "title": "Constitutive scientific generative agent (CSGA): Leveraging large language models for automated constitutive model discovery",
+        "authors": [
+          "Marius Tacke",
+          "Matthias Busch",
+          "Kartik Bali",
+          "Kian Abdolazizi",
+          "Kevin Linka",
+          "Christian Cyron",
+          "Roland Aydin"
+        ],
+        "publication_year": 2025,
+        "venue": "Machine Learning for Computational Science and Engineering",
+        "doi": "10.1007/s44379-025-00022-2"
+      },
+      "pdf_manifest_field_comparison": {
+        "title": "MATCH",
+        "authors": "MATCH",
+        "publication_year": "MATCH",
+        "venue": "MATCH",
+        "doi": "MATCH"
+      },
+      "pdf_manifest_identity": "MATCH",
+      "openalex_id_to_paper_identity": "NOT FOUND",
+      "required_action": "Do not replace the ID automatically. Resolve this exact OpenAlex ID through a successful official Works API response or reviewed OpenAlex metadata; compare work ID, title, authors, year, venue, and DOI to the PDF before marking verified."
+    },
+    {
+      "paper_id": "https://openalex.org/W4412954363",
+      "openalex_id": "W4412954363",
+      "api_request_url": "https://api.openalex.org/works/W4412954363?select=id,title,authorships,publication_year,primary_location,locations,doi",
+      "api_http_status": 404,
+      "api_result": "NOT FOUND",
+      "api_error": "HTTP 404 Not Found; no OpenAlex work fields were returned.",
+      "retrieved_openalex_identity": null,
+      "pdf_path": "data/papers/https_openalex_org_W4412954363_730df439.pdf",
+      "pdf_identity": {
+        "title": "Exploring the role of large language models in the scientific method: from hypothesis to discovery",
+        "authors": [
+          "Yanbo Zhang",
+          "Sumeer A. Khan",
+          "Adnan Mahmud",
+          "Huck Yang",
+          "Alexander Lavin",
+          "Michael Levin",
+          "Jeremy Frey",
+          "Jared Dunnmon",
+          "James Evans",
+          "Alan Bundy",
+          "Saso Dzeroski",
+          "Jesper Tegner",
+          "Hector Zenil"
+        ],
+        "publication_year": 2025,
+        "venue": "npj Artificial Intelligence",
+        "doi": "10.1038/s44387-025-00019-5",
+        "pdf_document_properties": {
+          "title": "Exploring the role of large language models in the scientific method: from hypothesis to discovery",
+          "author": "Yanbo Zhang",
+          "subject": "npj Artificial Intelligence, doi:10.1038/s44387-025-00019-5"
+        },
+        "front_matter_excerpt": "npj | artiﬁcial intelligence Perspective https://doi.org/10.1038/s44387-025-00019-5 Exploring the role of large language models in the scientiﬁc method: from hypothesis to discovery Check for updates Yanbo Zhang1, Sumeer A. Khan2,3,4, Adnan Mahmud5,6, Huck Yang7, Alexander Lavin8, Michael Levin1,9, Jeremy Frey10, Jared Dunnmon11, James Evans12,13, Alan Bundy14, Saso Dzeroski15, Jesper Tegner2,16,17,18,19 & Hector Zenil20,21,22,23,24 We review how Large Language Models (LLMs) are redeﬁning the scientiﬁc method and explore their potential applications across different stages of the scientiﬁc cycle, from hypothesis testing to discovery. We conclude that, for LLMs to serve as relevant and effect"
+      },
+      "manifest_identity": {
+        "title": "Exploring the role of large language models in the scientific method: from hypothesis to discovery",
+        "authors": [
+          "Yanbo Zhang",
+          "Sumeer A. Khan",
+          "Adnan Mahmud",
+          "Huck Yang",
+          "Alexander Lavin",
+          "Michael Levin",
+          "Jeremy Frey",
+          "Jared Dunnmon",
+          "James Evans",
+          "Alan Bundy",
+          "Saso Dzeroski",
+          "Jesper Tegner",
+          "Hector Zenil"
+        ],
+        "publication_year": 2025,
+        "venue": "npj Artificial Intelligence",
+        "doi": "10.1038/s44387-025-00019-5"
+      },
+      "pdf_manifest_field_comparison": {
+        "title": "MATCH",
+        "authors": "MATCH",
+        "publication_year": "MATCH",
+        "venue": "MATCH",
+        "doi": "MATCH"
+      },
+      "pdf_manifest_identity": "MATCH",
+      "openalex_id_to_paper_identity": "NOT FOUND",
+      "required_action": "Do not replace the ID automatically. Resolve this exact OpenAlex ID through a successful official Works API response or reviewed OpenAlex metadata; compare work ID, title, authors, year, venue, and DOI to the PDF before marking verified."
+    },
+    {
+      "paper_id": "https://openalex.org/W4414948975",
+      "openalex_id": "W4414948975",
+      "api_request_url": "https://api.openalex.org/works/W4414948975?select=id,title,authorships,publication_year,primary_location,locations,doi",
+      "api_http_status": 404,
+      "api_result": "NOT FOUND",
+      "api_error": "HTTP 404 Not Found; no OpenAlex work fields were returned.",
+      "retrieved_openalex_identity": null,
+      "pdf_path": "data/papers/https_openalex_org_W4414948975_e066d482.pdf",
+      "pdf_identity": {
+        "title": "Empowering scientific discovery with explainable small domain-specific and large language models",
+        "authors": [
+          "Hengjie Yu",
+          "Yizhi Wang",
+          "Tao Cheng",
+          "Yan Yan",
+          "Kenneth A. Dawson",
+          "Sam F. Y. Li",
+          "Yefeng Zheng",
+          "Yaochu Jin"
+        ],
+        "publication_year": 2025,
+        "venue": "Artificial Intelligence Review",
+        "doi": "10.1007/s10462-025-11365-w",
+        "pdf_document_properties": {
+          "title": null,
+          "author": null,
+          "subject": null
+        },
+        "front_matter_excerpt": "Accepted: 14 August 2025 / Published online: 8 October 2025 © The Author(s) 2025 Extended author information available on the last page of the article Empowering scientific discovery with explainable small domain-specific and large language models Hengjie Yu1,2 · Yizhi Wang1 · Tao Cheng3 · Yan Yan4,5 · Kenneth A. Dawson4 · Sam F. Y. Li6 · Yefeng Zheng1,2 · Yaochu Jin1,2 Artificial Intelligence Review (2025) 58:371 https://doi.org/10.1007/s10462-025-11365-w Abstract As artificial intelligence (AI) increasingly integrates into scientific research, explainability has become a cornerstone for ensuring reliability and innovation in discovery processes. This review offers a forward-looking integra"
+      },
+      "manifest_identity": {
+        "title": "Empowering scientific discovery with explainable small domain-specific and large language models",
+        "authors": [
+          "Hengjie Yu",
+          "Yizhi Wang",
+          "Tao Cheng",
+          "Yan Yan",
+          "Kenneth A. Dawson",
+          "Sam F. Y. Li",
+          "Yefeng Zheng",
+          "Yaochu Jin"
+        ],
+        "publication_year": 2025,
+        "venue": "Artificial Intelligence Review",
+        "doi": "10.1007/s10462-025-11365-w"
+      },
+      "pdf_manifest_field_comparison": {
+        "title": "MATCH",
+        "authors": "MATCH",
+        "publication_year": "MATCH",
+        "venue": "MATCH",
+        "doi": "MATCH"
+      },
+      "pdf_manifest_identity": "MATCH",
+      "openalex_id_to_paper_identity": "NOT FOUND",
+      "required_action": "Do not replace the ID automatically. Resolve this exact OpenAlex ID through a successful official Works API response or reviewed OpenAlex metadata; compare work ID, title, authors, year, venue, and DOI to the PDF before marking verified."
+    },
+    {
+      "paper_id": "https://openalex.org/W4416036182",
+      "openalex_id": "W4416036182",
+      "api_request_url": "https://api.openalex.org/works/W4416036182?select=id,title,authorships,publication_year,primary_location,locations,doi",
+      "api_http_status": 404,
+      "api_result": "NOT FOUND",
+      "api_error": "HTTP 404 Not Found; no OpenAlex work fields were returned.",
+      "retrieved_openalex_identity": null,
+      "pdf_path": "data/papers/https_openalex_org_W4416036182_7940d150.pdf",
+      "pdf_identity": {
+        "title": "From Automation to Autonomy: A Survey on Large Language Models in Scientific Discovery",
+        "authors": [
+          "Tianshi Zheng",
+          "Zheye Deng",
+          "Hong Ting Tsang",
+          "Weiqi Wang",
+          "Jiaxin Bai",
+          "Zihao Wang",
+          "Yangqiu Song"
+        ],
+        "publication_year": 2025,
+        "venue": "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
+        "doi": null,
+        "pdf_document_properties": {
+          "title": null,
+          "author": null,
+          "subject": null
+        },
+        "front_matter_excerpt": "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing, pages 17733–17750 November 4-9, 2025 ©2025 Association for Computational Linguistics From Automation to Autonomy: A Survey on Large Language Models in Scientific Discovery Tianshi Zheng, Zheye Deng, Hong Ting Tsang, Weiqi Wang, Jiaxin Bai, Zihao Wang, Yangqiu Song Department of Computer Science and Engineering, HKUST, Hong Kong SAR, China https://github.com/HKUST-KnowComp/Awesome-LLM-Scientific-Discovery Abstract Large Language Models (LLMs) are catalyzing a paradigm shift in scientific discovery, evolv- ing from task-specific automation tools into increasingly autonomous agents and fundamen- tally redefi"
+      },
+      "manifest_identity": {
+        "title": "From Automation to Autonomy: A Survey on Large Language Models in Scientific Discovery",
+        "authors": [
+          "Tianshi Zheng",
+          "Zheye Deng",
+          "Hong Ting Tsang",
+          "Weiqi Wang",
+          "Jiaxin Bai",
+          "Zihao Wang",
+          "Yangqiu Song"
+        ],
+        "publication_year": 2025,
+        "venue": "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
+        "doi": null
+      },
+      "pdf_manifest_field_comparison": {
+        "title": "MATCH",
+        "authors": "MATCH",
+        "publication_year": "MATCH",
+        "venue": "MATCH",
+        "doi": "MATCH (both absent)"
+      },
+      "pdf_manifest_identity": "MATCH",
+      "openalex_id_to_paper_identity": "NOT FOUND",
+      "required_action": "Do not replace the ID automatically. Resolve this exact OpenAlex ID through a successful official Works API response or reviewed OpenAlex metadata; compare work ID, title, authors, year, venue, and DOI to the PDF before marking verified."
+    }
+  ]
+}

@@ -76,11 +76,13 @@ class ChromaVectorStore:
         cls,
         embedder,
         persist_directory: str = "chroma_db",
+        collection_name: str | None = None,
     ) -> "ChromaVectorStore":
         return cls(
             embedding_model=embedder.model_name,
             embedding_dimension=embedder.dimension,
             persist_directory=persist_directory,
+            collection_name=collection_name,
         )
 
     def _check_identity(self) -> None:

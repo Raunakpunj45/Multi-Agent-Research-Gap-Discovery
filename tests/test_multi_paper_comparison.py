@@ -103,6 +103,17 @@ def test_labels_map_back_to_exact_ids_and_unsupported_items_are_dropped():
 
     result = comparison_for(parsed)
 
+    provenance_agent = CrossPaperComparisonAgent(client=FakeClient(parsed))
+    source_results = [make_result(i) for i in IDS]
+    original_fingerprint = provenance_agent.compare_many(
+        source_results
+    ).provenance.input_fingerprints["paper_analyses"]
+    source_results[0].analysis.problem = "changed analysis text"
+    changed_fingerprint = provenance_agent.compare_many(
+        source_results
+    ).provenance.input_fingerprints["paper_analyses"]
+    assert original_fingerprint != changed_fingerprint
+
     assert result.paper_ids == IDS and result.paper_count == 3
 
     assert [s.dimension for s in result.dimension_summaries] == ["future_work"]

@@ -1,15 +1,20 @@
+import json
+import hashlib
 from types import SimpleNamespace
 import sys
 
 import pytest
+from google.genai import types
 
 from src.agents import (
     EvidenceRef, EvidenceValidationAgent, EvidenceValidationStatus,
     GapSupportStatus, GapValidationStatus, ResearchGapDetectionResult,
+    MultiPaperComparison,
 )
+from src.agents.artifact_provenance import ArtifactProvenance
 from src.agents.evidence_validation_agent import (
     EvidenceValidationResult, _ChunkAssessment, _ContradictionAdjudication, _JointAssessment,
-    _ProposedContradiction,
+    _ProposedContradiction, _gemini_compatible_schema,
 )
 from src.agents.research_gap_detection_agent import (
     GapCategory, GapConfidence, GapOrigin, ResearchGap,
@@ -35,6 +40,34 @@ def input_result(gaps=None):
         gap_category_counts={"Methodological Gap": 1}, caveats=[])
 
 
+def lineaged_gap_input(detection, tmp_path):
+    comparison_path = tmp_path / "comparison.json"
+    comparison = MultiPaperComparison(
+        paper_ids=["paper-A", "paper-B"], paper_count=2,
+        dimension_summaries=[], recurring_patterns=[], common_limitations=[],
+        conflicting_findings=[], methodological_differences=[],
+        underexplored_directions=[], caveats=[],
+        provenance=ArtifactProvenance(
+            stage="cross_paper_comparison",
+            input_fingerprints={"paper_analyses": "a" * 64},
+        ),
+    )
+    comparison_bytes = comparison.model_dump_json().encode("utf-8")
+    comparison_path.write_bytes(comparison_bytes)
+    detection = detection.model_copy(update={"provenance": ArtifactProvenance(
+        stage="research_gap_detection",
+        input_fingerprints={"comparison": hashlib.sha256(comparison_bytes).hexdigest()},
+    )})
+    gap_bytes = detection.model_dump_json(indent=2).encode("utf-8")
+    input_path = tmp_path / "gaps.json"
+    input_path.write_bytes(gap_bytes)
+    return input_path, comparison_path, hashlib.sha256(gap_bytes).hexdigest()
+
+
+def schema_name(schema):
+    return schema["title"]
+
+
 class Store:
     def __init__(self, records=None, fail=False):
         self.records = records if records is not None else {
@@ -54,11 +87,13 @@ class Store:
 
 class Client:
     def __init__(self, chunk_statuses=None, joint_status=GapSupportStatus.PARTIALLY_SUPPORTED,
-                 contradictions=None, fail_schema=None, adjudication=None):
+                 contradictions=None, fail_schema=None, adjudication=None,
+                 fail_error="simulated model failure"):
         self.chunk_statuses = iter(chunk_statuses or ["SUPPORTED", "PARTIALLY_SUPPORTED"])
         self.joint_status = joint_status
         self.contradictions = contradictions or []
         self.fail_schema = fail_schema
+        self.fail_error = fail_error
         self.adjudication = adjudication or _ContradictionAdjudication(
             same_subject=True, substantively_incompatible=True,
             confidence="HIGH", explanation="The quoted positions directly conflict.")
@@ -66,13 +101,13 @@ class Client:
         self.models = SimpleNamespace(generate_content=self.generate)
 
     def generate(self, **kwargs):
-        self.prompts.append((kwargs["config"].response_schema, kwargs["contents"]))
-        schema = kwargs["config"].response_schema
-        if schema is self.fail_schema:
-            raise RuntimeError("simulated model failure")
-        if schema is _ContradictionAdjudication:
+        schema = kwargs["config"].response_json_schema
+        self.prompts.append((schema, kwargs["contents"]))
+        if schema_name(schema) == getattr(self.fail_schema, "__name__", None):
+            raise RuntimeError(self.fail_error)
+        if schema_name(schema) == _ContradictionAdjudication.__name__:
             return SimpleNamespace(parsed=self.adjudication)
-        if schema is _ChunkAssessment:
+        if schema_name(schema) == _ChunkAssessment.__name__:
             return SimpleNamespace(parsed=_ChunkAssessment(
                 status=next(self.chunk_statuses),
                 attributed_contribution="This paper contributes a specific evaluation finding.",
@@ -110,14 +145,64 @@ def run(client=None, store=None, gaps=None):
     return result, client, store
 
 
+def test_gemini_developer_schemas_omit_additional_properties_and_local_models_stay_strict():
+    schemas = [_gemini_compatible_schema(model) for model in (
+        _ChunkAssessment, _JointAssessment, _ContradictionAdjudication,
+    )]
+
+    def has_additional_properties(value):
+        if isinstance(value, dict):
+            return "additionalProperties" in value or any(
+                has_additional_properties(item) for item in value.values()
+            )
+        if isinstance(value, list):
+            return any(has_additional_properties(item) for item in value)
+        return False
+
+    assert all(not has_additional_properties(schema) for schema in schemas)
+    for schema in schemas:
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json", response_json_schema=schema,
+        )
+        assert config.response_json_schema == schema
+    quote_schema = schemas[0]["properties"]["subject_quotes"]
+    assert quote_schema["type"] == "object"
+    assert "supports_physics_informed_ml" in quote_schema["properties"]
+
+    valid = {
+        "status": "SUPPORTED", "attributed_contribution": "A contribution.",
+        "claim_evidence_alignment": "Aligned.", "evidence_summary_accuracy": "Accurate.",
+        "limitations": "Limited.", "explanation": "Supported.",
+        "subject_quotes": {"supports_physics_informed_ml": "exact phrase"},
+    }
+    parsed = _ChunkAssessment.model_validate(valid, strict=True)
+    assert parsed.subject_quotes["supports_physics_informed_ml"] == "exact phrase"
+    with pytest.raises(Exception):
+        _ChunkAssessment.model_validate({**valid, "unexpected": "field"}, strict=True)
+    with pytest.raises(Exception):
+        _ChunkAssessment.model_validate({**valid, "subject_quotes": {"unknown_flag": "quote"}}, strict=True)
+
+
+def test_exact_gemini_additional_properties_api_error_fails_closed():
+    exact_error = (
+        "additionalProperties is only supported in Gemini Enterprise Agent Platform mode, "
+        "not in Gemini Developer API mode."
+    )
+    out, _, _ = run(Client(fail_schema=_ChunkAssessment, fail_error=exact_error))
+    gap_result = out.gap_validations[0]
+    assert gap_result.status is GapValidationStatus.VALIDATION_INCOMPLETE
+    assert all(item.status is None for item in gap_result.evidence_validations)
+    assert all(exact_error in item.assessment_error for item in gap_result.evidence_validations)
+
+
 def test_chunk_assesses_only_its_paper_contribution_and_joint_receives_all_verified_chunks():
     out, client, store = run()
     gap_result = out.gap_validations[0]
     assert store.calls == ["a1", "b1"]
     assert [e.status for e in gap_result.evidence_validations] == [
         EvidenceValidationStatus.SUPPORTED, EvidenceValidationStatus.PARTIALLY_SUPPORTED]
-    chunk_prompts = [prompt for schema, prompt in client.prompts if schema is _ChunkAssessment]
-    joint_prompts = [prompt for schema, prompt in client.prompts if schema is _JointAssessment]
+    chunk_prompts = [prompt for schema, prompt in client.prompts if schema_name(schema) == _ChunkAssessment.__name__]
+    joint_prompts = [prompt for schema, prompt in client.prompts if schema_name(schema) == _JointAssessment.__name__]
     assert "do not require this chunk to establish the whole cross-paper gap" in EvidenceValidationAgent.CHUNK_SYSTEM_INSTRUCTION
     assert all(pid in prompt for pid, prompt in [("paper-A", chunk_prompts[0]), ("paper-B", chunk_prompts[1])])
     assert all(cid in joint_prompts[0] for cid in ("a1", "b1"))
@@ -126,6 +211,50 @@ def test_chunk_assesses_only_its_paper_contribution_and_joint_receives_all_verif
     assert {ref.paper_id: ref.chunk_ids for ref in gap_result.joint_assessment.source_evidence} == {
         "paper-A": ["a1"], "paper-B": ["b1"]}
     assert gap_result.status is GapValidationStatus.PARTIALLY_SUPPORTED
+
+
+def test_chunk_subject_mentions_are_structured_and_verified_against_exact_text():
+    records = {
+        "a1": {"chunk_id": "a1", "text": (
+            "LLM self-explanations may fail faithfulness checks."
+        ), "metadata": {"paper_id": "paper-A", "chunk_id": "a1"}},
+        "b1": {"chunk_id": "b1", "text": (
+            "Accurate model predictions do not establish causal relationships."
+        ), "metadata": {"paper_id": "paper-B", "chunk_id": "b1"}},
+    }
+    output, _, _ = run(store=Store(records=records))
+    first, second = output.gap_validations[0].evidence_validations
+    assert first.mentions_llm is True
+    assert first.mentions_faithfulness is True
+    assert second.mentions_llm is False
+    assert second.mentions_faithfulness is False
+    assert json.loads(first.findings)["mentions_llm"] is True
+
+
+def test_positive_subject_support_flag_requires_verbatim_chunk_quote():
+    assessment = _ChunkAssessment(
+        status="SUPPORTED",
+        attributed_contribution="Physics-informed ML is called for.",
+        supported_contribution="Physics-informed ML is called for.",
+        supported_contribution_quote="physics-infused ML",
+        subject_quotes={"supports_physics_informed_ml": "physics-infused ML"},
+        supports_physics_informed_ml=True,
+        claim_evidence_alignment="Exact source phrase supports this contribution.",
+        evidence_summary_accuracy="Accurate.", limitations="None.", explanation="Supported.",
+    )
+    flags = EvidenceValidationAgent._verified_subject_flags(
+        assessment, "The paper calls for physics-infused ML approaches."
+    )
+    assert flags["supports_physics_informed_ml"] is True
+    assert flags["supported_contribution"] == "Physics-informed ML is called for."
+
+    assessment.subject_quotes["supports_physics_informed_ml"] = "physics-informed methods"
+    assessment.supported_contribution_quote = "physics-informed methods"
+    flags = EvidenceValidationAgent._verified_subject_flags(
+        assessment, "The paper calls for physics-infused ML approaches."
+    )
+    assert flags["supports_physics_informed_ml"] is False
+    assert flags["supported_contribution"] is None
 
 
 @pytest.mark.parametrize("joint,chunk_statuses,expected", [
@@ -163,7 +292,7 @@ def test_unrelated_propositions_with_valid_quotes_are_rejected():
     })
     out, client, _ = run(Client(contradictions=[unrelated], adjudication=adjudication), store=custom_store)
     assert out.gap_validations[0].contradictions == []
-    adjudication_prompts = [p for schema, p in client.prompts if schema is _ContradictionAdjudication]
+    adjudication_prompts = [p for schema, p in client.prompts if schema_name(schema) == _ContradictionAdjudication.__name__]
     assert len(adjudication_prompts) == 1
     assert "Proposition A:" in adjudication_prompts[0]
     assert "Verified quote A:" in adjudication_prompts[0]
@@ -282,16 +411,20 @@ def test_targeted_joint_retry_preserves_other_gap_and_skips_chunk_assessments(tm
         "semantic_failures": ["GAP-003: joint Gemini assessment failed: simulated quota failure"],
     })
 
-    input_path = tmp_path / "gaps.json"
+    input_path, comparison_path, gap_fingerprint = lineaged_gap_input(detection, tmp_path)
+    saved.provenance = ArtifactProvenance(
+        stage="evidence_validation",
+        input_fingerprints={"gap_detection": gap_fingerprint},
+    )
     output_path = tmp_path / "evidence.json"
-    input_path.write_text(detection.model_dump_json(indent=2), encoding="utf-8")
     output_path.write_text(saved.model_dump_json(indent=2), encoding="utf-8")
     store.calls.clear()
     client.prompts.clear()
     monkeypatch.setattr(runner, "EvidenceValidationAgent", lambda: agent)
     monkeypatch.setattr(sys, "argv", [
         "run_evidence_validation.py", "--input", str(input_path),
-        "--output", str(output_path), "--retry-joint", "GAP-003",
+        "--comparison", str(comparison_path), "--output", str(output_path),
+        "--retry-joint", "GAP-003",
     ])
 
     runner.main()
@@ -301,7 +434,7 @@ def test_targeted_joint_retry_preserves_other_gap_and_skips_chunk_assessments(tm
     assert by_id["GAP-003"].status is GapValidationStatus.PARTIALLY_SUPPORTED
     assert by_id["GAP-003"].joint_assessment is not None
     assert by_id["GAP-001"].status is GapValidationStatus.FULLY_SUPPORTED
-    assert all(schema is _JointAssessment for schema, _ in client.prompts)
+    assert all(schema_name(schema) == _JointAssessment.__name__ for schema, _ in client.prompts)
     assert store.calls == ["a1", "b1"]
     assert updated.semantic_failures == []
 
@@ -331,9 +464,12 @@ def test_targeted_joint_retry_failure_does_not_overwrite_saved_file(tmp_path, mo
         },
         "semantic_failures": ["GAP-003: joint Gemini assessment failed: initial quota failure"],
     })
-    input_path = tmp_path / "gaps.json"
+    input_path, comparison_path, gap_fingerprint = lineaged_gap_input(detection, tmp_path)
+    saved.provenance = ArtifactProvenance(
+        stage="evidence_validation",
+        input_fingerprints={"gap_detection": gap_fingerprint},
+    )
     output_path = tmp_path / "evidence.json"
-    input_path.write_text(detection.model_dump_json(indent=2), encoding="utf-8")
     original_bytes = saved.model_dump_json(indent=2).encode("utf-8")
     output_path.write_bytes(original_bytes)
     store.calls.clear()
@@ -341,12 +477,13 @@ def test_targeted_joint_retry_failure_does_not_overwrite_saved_file(tmp_path, mo
     monkeypatch.setattr(runner, "EvidenceValidationAgent", lambda: agent)
     monkeypatch.setattr(sys, "argv", [
         "run_evidence_validation.py", "--input", str(input_path),
-        "--output", str(output_path), "--retry-joint", "GAP-003",
+        "--comparison", str(comparison_path), "--output", str(output_path),
+        "--retry-joint", "GAP-003",
     ])
 
     with pytest.raises(RuntimeError, match="simulated model failure"):
         runner.main()
 
     assert output_path.read_bytes() == original_bytes
-    assert all(schema is _JointAssessment for schema, _ in client.prompts)
+    assert all(schema_name(schema) == _JointAssessment.__name__ for schema, _ in client.prompts)
     assert store.calls == ["a1", "b1"]

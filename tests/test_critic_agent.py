@@ -27,6 +27,7 @@ from src.agents.critic_agent import (
     _LLMCriticism,
     _LLMGapReview,
     _LLMRevisionSuggestion,
+    fingerprint_inputs,
 )
 
 P1, P2 = "https://openalex.org/W1", "https://openalex.org/W2"
@@ -131,6 +132,20 @@ class FakeClient:
         return SimpleNamespace(parsed=self.parsed)
 
 
+class SequencedClient:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.calls = []
+        self.models = SimpleNamespace(generate_content=self.generate)
+
+    def generate(self, **kwargs):
+        self.calls.append(kwargs)
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return SimpleNamespace(parsed=outcome)
+
+
 def test_complete_review_maps_evidence_labels_to_original_ids_and_bounds_novelty():
     client = FakeClient(llm_review())
     result = CriticAgent(client=client).critique(comparison(), gap_result(), validation())
@@ -187,11 +202,168 @@ def test_model_failure_returns_safe_incomplete_reviews():
     assert result.gap_reviews[0].decision is CriticDecision.REVISE
     serialized = result.model_dump_json()
     assert result.errors == [
-        "Critic assessment failed: API quota exhausted (HTTP 429)."
+        "GAP-001: Critic assessment failed: API quota exhausted (HTTP 429)."
     ]
     assert "SECRET_PROVIDER_BODY" not in serialized
     assert "48624s" not in serialized
     assert "private retryAfter" not in serialized
+
+
+def test_daily_quota_exhaustion_stops_retries_and_later_gap_calls():
+    class ProviderError(Exception):
+        code = 429
+
+    daily_error = ProviderError(
+        "RESOURCE_EXHAUSTED: quota exceeded for GenerateContentRequestsPerDay per day"
+    )
+    first = research_gap()
+    second = research_gap().model_copy(update={"gap_id": "GAP-002"})
+    gaps = gap_result([first, second])
+    evidence = EvidenceValidationResult(
+        research_topic="topic", paper_ids=[P1, P2],
+        gap_validations=validation("GAP-001").gap_validations
+        + validation("GAP-002").gap_validations,
+        validation_counts={"FULLY_SUPPORTED": 2}, evidence_status_counts={"SUPPORTED": 4},
+    )
+    client = FakeClient(error=daily_error)
+
+    result = CriticAgent(client=client, max_retries=5).critique(
+        comparison(), gaps, evidence,
+    )
+
+    assert len(client.calls) == 1
+    assert [review.review_status for review in result.gap_reviews] == [
+        CriticReviewStatus.INCOMPLETE, CriticReviewStatus.INCOMPLETE,
+    ]
+    assert "daily API quota was exhausted" in result.gap_reviews[1].reasoning
+
+
+def test_transient_rate_limit_retries_using_provider_retry_after(monkeypatch):
+    class ProviderError(Exception):
+        code = 429
+
+        def __init__(self):
+            self.response = SimpleNamespace(headers={"Retry-After": "3"})
+
+    sleeps = []
+    monkeypatch.setattr("src.agents.critic_agent.time.sleep", sleeps.append)
+    client = SequencedClient([ProviderError(), llm_review()])
+    agent = CriticAgent(client=client, max_retries=3, max_backoff_seconds=5)
+
+    parsed = agent._generate("prompt")
+
+    assert isinstance(parsed, _LLMCriticResult)
+    assert len(client.calls) == 2
+    assert sleeps == [3.0]
+
+
+def test_transient_rate_limit_reads_google_retry_info_details(monkeypatch):
+    class ProviderError(Exception):
+        code = 429
+        details = {"error": {"details": [{
+            "@type": "type.googleapis.com/google.rpc.RetryInfo",
+            "retryDelay": "4s",
+        }]}}
+
+    sleeps = []
+    monkeypatch.setattr("src.agents.critic_agent.time.sleep", sleeps.append)
+    client = SequencedClient([ProviderError("rate limit"), llm_review()])
+    agent = CriticAgent(client=client, max_retries=3, max_backoff_seconds=5)
+
+    agent._generate("prompt")
+
+    assert len(client.calls) == 2
+    assert sleeps == [4.0]
+
+
+def test_transient_rate_limit_without_guidance_uses_bounded_backoff(monkeypatch):
+    class ProviderError(Exception):
+        code = 429
+
+    sleeps = []
+    monkeypatch.setattr("src.agents.critic_agent.time.sleep", sleeps.append)
+    client = SequencedClient([ProviderError("rate limit"), ProviderError("rate limit"), llm_review()])
+    agent = CriticAgent(client=client, max_retries=3,
+                        base_backoff_seconds=2, max_backoff_seconds=3)
+
+    agent._generate("prompt")
+
+    assert len(client.calls) == 3
+    assert sleeps == [2, 3]
+
+
+def test_fingerprints_change_when_any_input_bytes_change():
+    payloads = {
+        "comparison": b"comparison-v1",
+        "gap_detection": b"gaps-v1",
+        "evidence_validation": b"validation-v1",
+    }
+    original = fingerprint_inputs(payloads)
+    assert original == fingerprint_inputs(dict(payloads))
+    for name in payloads:
+        changed = dict(payloads)
+        changed[name] += b" changed"
+        assert fingerprint_inputs(changed) != original
+
+
+def test_matching_successful_review_is_preserved_after_partial_failure():
+    fingerprints = {
+        "comparison": "a" * 64,
+        "gap_detection": "b" * 64,
+        "evidence_validation": "c" * 64,
+    }
+    previous = CriticAgent(client=FakeClient(llm_review())).critique(
+        comparison(), gap_result(), validation(), input_fingerprints=fingerprints,
+    )
+    old_review = previous.gap_reviews[0].model_copy(update={"decision": CriticDecision.ACCEPT})
+    previous = previous.model_copy(update={"gap_reviews": [old_review]})
+    first = research_gap()
+    second = research_gap().model_copy(update={"gap_id": "GAP-002"})
+    current_gaps = gap_result([first, second])
+    current_validation = EvidenceValidationResult(
+        research_topic="topic", paper_ids=[P1, P2],
+        gap_validations=validation("GAP-001").gap_validations
+        + validation("GAP-002").gap_validations,
+        validation_counts={"FULLY_SUPPORTED": 2}, evidence_status_counts={"SUPPORTED": 4},
+    )
+    client = SequencedClient([RuntimeError("temporary outage")])
+    result = CriticAgent(client=client, max_retries=1).critique(
+        comparison(), current_gaps, current_validation,
+        input_fingerprints=fingerprints, previous_result=previous,
+    )
+
+    assert len(client.calls) == 1  # GAP-001 reused; only GAP-002 was assessed.
+    assert result.gap_reviews[0].decision is CriticDecision.ACCEPT
+    assert result.gap_reviews[0].review_status is CriticReviewStatus.COMPLETE
+    assert any("Reused a previously successful review" in item
+               for item in result.gap_reviews[0].caveats)
+    assert result.gap_reviews[1].review_status is CriticReviewStatus.INCOMPLETE
+    assert result.review_status is CriticReviewStatus.INCOMPLETE
+
+
+def test_stale_successful_review_is_not_preserved():
+    previous_fingerprints = {
+        "comparison": "a" * 64,
+        "gap_detection": "b" * 64,
+        "evidence_validation": "c" * 64,
+    }
+    current_fingerprints = dict(previous_fingerprints, evidence_validation="d" * 64)
+    previous = CriticAgent(client=FakeClient(llm_review())).critique(
+        comparison(), gap_result(), validation(), input_fingerprints=previous_fingerprints,
+    )
+    previous = previous.model_copy(update={"gap_reviews": [previous.gap_reviews[0].model_copy(
+        update={"decision": CriticDecision.ACCEPT})]})
+    client = FakeClient(error=RuntimeError("temporary outage"))
+    failed = CriticAgent(client=client, max_retries=1).critique(
+        comparison(), gap_result(), validation(), input_fingerprints=current_fingerprints,
+        previous_result=previous,
+    )
+
+    assert len(client.calls) == 1
+    assert failed.gap_reviews[0].review_status is CriticReviewStatus.INCOMPLETE
+    assert failed.gap_reviews[0].decision is CriticDecision.REVISE
+    assert not any("Reused a previously successful review" in item
+                   for item in failed.gap_reviews[0].caveats)
 
 
 def test_invalid_evidence_labels_are_omitted_and_mark_review_incomplete():
@@ -225,6 +397,33 @@ def test_omitted_gap_review_becomes_explicitly_incomplete():
     assert result.review_status is CriticReviewStatus.INCOMPLETE
     assert result.gap_reviews[0].gap_id == "GAP-001"
     assert "omitted" in result.errors[0]
+
+
+def test_partial_success_across_multiple_gaps_keeps_success_and_marks_failed_gap():
+    class ProviderError(Exception):
+        code = 503
+
+    first = research_gap()
+    second = research_gap().model_copy(update={"gap_id": "GAP-002"})
+    gaps = gap_result([first, second])
+    evidence = EvidenceValidationResult(
+        research_topic="topic", paper_ids=[P1, P2],
+        gap_validations=validation("GAP-001").gap_validations
+        + validation("GAP-002").gap_validations,
+        validation_counts={"FULLY_SUPPORTED": 2}, evidence_status_counts={"SUPPORTED": 4},
+    )
+    client = SequencedClient([llm_review(), ProviderError("service unavailable")])
+
+    result = CriticAgent(client=client, max_retries=1).critique(
+        comparison(), gaps, evidence,
+    )
+
+    assert len(client.calls) == 2
+    assert result.review_status is CriticReviewStatus.INCOMPLETE
+    assert [(item.gap_id, item.review_status) for item in result.gap_reviews] == [
+        ("GAP-001", CriticReviewStatus.COMPLETE),
+        ("GAP-002", CriticReviewStatus.INCOMPLETE),
+    ]
 
 
 def test_no_candidate_gaps_completes_without_gemini():

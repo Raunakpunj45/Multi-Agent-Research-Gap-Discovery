@@ -47,6 +47,17 @@ from .critic_agent import (
     GapOriginAssessment,
     RevisionSuggestion,
 )
+from .research_question_agent import (
+    EvidenceBackedFact,
+    GapResearchQuestions,
+    GenerationStatus,
+    HypothesisStatus,
+    ProposedHypothesis,
+    ResearchQuestion,
+    ResearchQuestionAgent,
+    ResearchQuestionResult,
+    SkippedGap,
+)
 
 __all__ = [
     "SearchPlan",
@@ -91,4 +102,13 @@ __all__ = [
     "GapCriticReview",
     "GapOriginAssessment",
     "RevisionSuggestion",
+    "GenerationStatus",
+    "HypothesisStatus",
+    "EvidenceBackedFact",
+    "ResearchQuestion",
+    "ProposedHypothesis",
+    "GapResearchQuestions",
+    "SkippedGap",
+    "ResearchQuestionResult",
+    "ResearchQuestionAgent",
 ]

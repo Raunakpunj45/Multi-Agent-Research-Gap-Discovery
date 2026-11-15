@@ -4,13 +4,16 @@ Run from the project root:
     python experiments/run_multi_paper_comparison.py "large language models scientific discovery" --max-papers 10
 """
 import argparse
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
 from src.agents import PaperAnalysisPipeline
+from src.agents.planner_retrieval_agent import PlannerRetrievalAgent
 from src.retrieval import MultiSourceRetriever
 
 ANALYSIS_QUERY = (
@@ -29,11 +32,20 @@ def main():
     parser.add_argument("topic")
     parser.add_argument("--max-papers", type=int, default=10)
     parser.add_argument("--per-source", type=int, default=10)
+    parser.add_argument(
+        "--use-planner", action="store_true",
+        help="Opt in to Planner Agent query expansion before retrieval.",
+    )
     args = parser.parse_args()
 
-    papers = MultiSourceRetriever(peer_reviewed_only=True).search(
-        query=args.topic, max_results_per_source=args.per_source
-    )
+    if args.use_planner:
+        _, papers = PlannerRetrievalAgent().search(
+            topic=args.topic, max_results_per_source=args.per_source
+        )
+    else:
+        papers = MultiSourceRetriever(peer_reviewed_only=True).search(
+            query=args.topic, max_results_per_source=args.per_source
+        )
     candidates = [p for p in papers if p.pdf_url]
     print(f"\n{len(papers)} papers retrieved, {len(candidates)} with a PDF URL.")
 
@@ -68,7 +80,21 @@ def main():
         print(f" - {c}")
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(comparison.model_dump_json(indent=2), encoding="utf-8")
+    temp_name = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=OUTPUT_PATH.parent,
+            prefix=f".{OUTPUT_PATH.name}.", suffix=".tmp", delete=False,
+        ) as temp_file:
+            temp_name = temp_file.name
+            temp_file.write(comparison.model_dump_json(indent=2))
+            temp_file.write("\n")
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(temp_name, OUTPUT_PATH)
+    finally:
+        if temp_name and os.path.exists(temp_name):
+            os.unlink(temp_name)
     print(f"\nSaved: {OUTPUT_PATH}")
 
 

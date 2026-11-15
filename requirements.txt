@@ -4,3 +4,4 @@ requests
 pymupdf
 chromadb
 sentence-transformers
+langgraph>=1.0,<2.0
