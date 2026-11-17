@@ -13,3 +13,6 @@ demo_output.txt
 # Pytest temporary directories
 .pytest_cache/
 .pytest-*/
+
+data/evaluation/chroma_multi_agent/
+data/evaluation/runs/

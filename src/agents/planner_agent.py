@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
+from src.agents.gemini_config import create_gemini_client
 
 
 load_dotenv()
@@ -49,19 +50,23 @@ class PlannerAgent:
     def __init__(
         self,
         model: str = "gemini-3.5-flash",
+        client=None,
     ):
-        api_key = os.getenv("GEMINI_API_KEY")
-
-        if not api_key:
-            raise ValueError(
-                "GEMINI_API_KEY not found in environment."
-            )
-
-        self.client = genai.Client(
-            api_key=api_key
-        )
+        # Planning is an upstream analysis-stage Gemini call (ANALYSIS key),
+        # created lazily on first use.
+        self._client = client
 
         self.model = model
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = create_gemini_client("ANALYSIS")
+        return self._client
+
+    @client.setter
+    def client(self, value):
+        self._client = value
 
     def create_search_plan(
         self,

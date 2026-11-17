@@ -20,11 +20,16 @@ def build_chunk_ownership_index(
     embedding_model: str = "BAAI/bge-small-en-v1.5",
     embedding_dimension: int = 384,
     page_size: int = 1000,
+    repo_root: Path | None = None,
 ) -> dict[str, str]:
-    """Read existing records; reject missing, malformed, or conflicting ownership."""
+    """Read existing records; reject missing, malformed, or conflicting ownership.
+
+    ``repo_root`` is the directory manifest paper paths resolve against; it
+    defaults to this repository.
+    """
     if page_size < 1:
         raise ValueError("page_size must be at least 1.")
-    root = Path(__file__).resolve().parents[2]
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
     manifest = load_dataset_manifest(manifest_path, root)
     included = {
         paper.paper_id for paper in manifest.papers

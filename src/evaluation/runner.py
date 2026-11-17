@@ -329,8 +329,14 @@ def _validate_multi_agent_bundle(bundle: dict, expected_ids: list[str]) -> None:
 
 
 def create_dry_run(manifest_path: Path, runs_dir: Path,
-                   system_name: str = "manifest_validation") -> Path:
-    root = Path(__file__).resolve().parents[2]
+                   system_name: str = "manifest_validation", *,
+                   repo_root: Path | None = None) -> Path:
+    """Validate the manifest and record a no-call run.
+
+    ``repo_root`` is the directory manifest ``relative_path`` values resolve
+    against; it defaults to this repository.
+    """
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
     manifest = load_dataset_manifest(manifest_path, root)
     return _write_run(
         None, manifest, runs_dir=runs_dir, system_name=system_name,
@@ -357,8 +363,10 @@ def create_imported_run(
     multi_agent_bundle_path: Path | None = None,
     research_prompt_id: str | None = None,
     canonical_prompt_text: str | None = None,
+    repo_root: Path | None = None,
 ) -> Path:
-    root = Path(__file__).resolve().parents[2]
+    # ``repo_root``: directory manifest paper paths resolve against (default: this repository).
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
     manifest = load_dataset_manifest(manifest_path, root)
     expected_paper_ids = [
         paper.paper_id for paper in manifest.papers

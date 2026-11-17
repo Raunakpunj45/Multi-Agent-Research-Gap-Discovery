@@ -1,6 +1,7 @@
 """Validate saved candidate gaps against exact stored chunks using Gemini.
 
-Run from the project root with GEMINI_API_KEY configured:
+Run from the project root with GEMINI_API_KEY_VALIDATION, the earlier
+GEMINI_API_KEY_VALIDATION_CRITIC key, or the GEMINI_API_KEY fallback configured:
     python experiments/run_evidence_validation.py
 """
 import argparse
@@ -8,18 +9,27 @@ import hashlib
 import json
 import os
 import sys
-import tempfile
+import uuid
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
+
+from src.agents.artifact_io import (
+    write_text_no_overwrite,
+    write_text_preserving_previous,
+)
 
 from pydantic import ValidationError
 
 from src.agents import EvidenceValidationAgent, MultiPaperComparison, ResearchGapDetectionResult
 from src.agents.artifact_provenance import (
     ArtifactProvenance,
+    CANONICAL_JSON_SHA256,
+    RAW_BYTES_SHA256,
+    fingerprint_json,
     require_fingerprint,
+    require_fingerprint_scheme,
     require_recorded_fingerprint,
 )
 from src.agents.evidence_validation_agent import (
@@ -45,10 +55,39 @@ def main() -> None:
         "--retry-joint", metavar="GAP_ID",
         help="Retry only the missing joint assessment for GAP_ID in the saved output JSON.",
     )
+    parser.add_argument("--retry-evidence", metavar="GAP_ID", help="Retry failed individual assessments for GAP_ID.")
+    parser.add_argument("--saved-validation", type=Path, help="Prior validation artifact for --retry-evidence.")
     args = parser.parse_args()
     if not args.input.exists():
         parser.error(f"Gap detection file not found: {args.input}")
     gap_bytes = args.input.read_bytes()
+    if args.retry_evidence:
+        try:
+            raw_container = json.loads(gap_bytes)
+        except json.JSONDecodeError:
+            raw_container = None
+        if isinstance(raw_container, dict) and all(key in raw_container for key in ("comparison", "gap_detection", "evidence_validation")):
+            source = args.input.resolve()
+            run_dir = ROOT_DIR / "data" / "processed" / "targeted_retries" / f"{source.stem}-{uuid.uuid4().hex[:8]}"
+            run_dir.mkdir(parents=True, exist_ok=False)
+            paths = {key: run_dir / f"{key}.json" for key in ("comparison", "gap_detection", "evidence_validation")}
+            for key, path in paths.items():
+                value = raw_container[key]
+                if isinstance(value, dict):
+                    value = dict(value)
+                    prov = dict(value.get("provenance") or {})
+                    expected_scheme_key = {"comparison": "paper_analyses", "gap_detection": "comparison",
+                                           "evidence_validation": "gap_detection"}[key]
+                    declared = (prov.get("fingerprint_schemes") or {}).get(expected_scheme_key)
+                    if declared is not None and declared != CANONICAL_JSON_SHA256:
+                        parser.error(f"LangGraph {key} artifact declares an incompatible {expected_scheme_key!r} fingerprint scheme: {declared!r}.")
+                    prov["fingerprint_schemes"] = {**prov.get("fingerprint_schemes", {}),
+                        expected_scheme_key: CANONICAL_JSON_SHA256}
+                    value["provenance"] = prov
+                path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            args.input, args.comparison = paths["gap_detection"], paths["comparison"]
+            args.saved_validation = paths["evidence_validation"]
+            gap_bytes = args.input.read_bytes()
     try:
         result = ResearchGapDetectionResult.model_validate_json(
             gap_bytes
@@ -65,43 +104,59 @@ def main() -> None:
         )
     except (ValidationError, json.JSONDecodeError, ValueError) as error:
         parser.error(f"Invalid or unproven comparison artifact: {error}")
-    comparison_fingerprint = hashlib.sha256(comparison_bytes).hexdigest()
+    comparison_scheme = comparison.provenance.fingerprint_schemes.get("paper_analyses", RAW_BYTES_SHA256)
+    if comparison_scheme not in (RAW_BYTES_SHA256, CANONICAL_JSON_SHA256):
+        parser.error(f"Unsupported comparison fingerprint scheme: {comparison_scheme}")
+    comparison_fingerprint = (fingerprint_json(comparison.model_dump(mode="json", exclude={"provenance"}))
+                              if comparison_scheme == CANONICAL_JSON_SHA256
+                              else hashlib.sha256(comparison_bytes).hexdigest())
     try:
+        require_fingerprint_scheme(result.provenance, "comparison", "Gap detection artifact", comparison_scheme)
         require_fingerprint(
             result.provenance, "comparison", comparison_fingerprint,
             "Gap detection artifact",
         )
     except ValueError as error:
         parser.error(str(error))
-    gap_fingerprint = hashlib.sha256(gap_bytes).hexdigest()
+    gap_scheme = result.provenance.fingerprint_schemes.get("comparison", RAW_BYTES_SHA256)
+    gap_fingerprint = (fingerprint_json(result.model_dump(mode="json", exclude={"provenance"}))
+                       if gap_scheme == CANONICAL_JSON_SHA256 else hashlib.sha256(gap_bytes).hexdigest())
 
     agent = EvidenceValidationAgent()
-    if args.retry_joint:
-        if not args.output.exists():
-            parser.error(f"Saved evidence validation file not found: {args.output}")
+    saved_path = args.saved_validation if args.retry_evidence else args.output
+    if args.retry_evidence:
+        if args.saved_validation is None or not args.saved_validation.exists():
+            parser.error("--retry-evidence requires an existing --saved-validation file.")
+        if args.output.resolve() in {args.input.resolve(), args.comparison.resolve(), args.saved_validation.resolve()} or args.output.exists():
+            parser.error("--retry-evidence output must be a new path distinct from every input file.")
+    if args.retry_joint or args.retry_evidence:
+        if not saved_path.exists():
+            parser.error(f"Saved evidence validation file not found: {saved_path}")
         try:
             saved = EvidenceValidationResult.model_validate_json(
-                args.output.read_text(encoding="utf-8")
+                saved_path.read_text(encoding="utf-8")
             )
         except (ValidationError, json.JSONDecodeError) as error:
             parser.error(f"Invalid saved evidence validation JSON: {error}")
         try:
+            require_fingerprint_scheme(saved.provenance, "gap_detection", "Saved evidence validation artifact", gap_scheme)
             require_fingerprint(
                 saved.provenance, "gap_detection", gap_fingerprint,
                 "Saved evidence validation artifact",
             )
         except ValueError as error:
             parser.error(str(error))
-        gap = next((item for item in result.gaps if item.gap_id == args.retry_joint), None)
-        old = next((item for item in saved.gap_validations
-                    if item.gap_id == args.retry_joint), None)
+        retry_id = args.retry_joint or args.retry_evidence
+        gap = next((item for item in result.gaps if item.gap_id == retry_id), None)
+        old = next((item for item in saved.gap_validations if item.gap_id == retry_id), None)
         if gap is None or old is None:
             parser.error(f"Gap {args.retry_joint} must exist in both input and saved validation files")
-        if old.status is not GapValidationStatus.VALIDATION_INCOMPLETE or old.joint_assessment is not None:
+        if args.retry_joint and (old.status is not GapValidationStatus.VALIDATION_INCOMPLETE or old.joint_assessment is not None):
             parser.error(f"{args.retry_joint} is not an incomplete validation with a missing joint assessment")
         # Any exception here exits before touching the saved file.
-        retried = agent.retry_joint_assessment(gap, old)
-        validations = [retried if item.gap_id == args.retry_joint else item
+        retried = (agent.retry_failed_evidence(gap, old) if args.retry_evidence
+                   else agent.retry_joint_assessment(gap, old))
+        validations = [retried if item.gap_id == retry_id else item
                        for item in saved.gap_validations]
         statuses = [item.status.value for item in validations]
         evidence_statuses = [
@@ -118,7 +173,7 @@ def main() -> None:
             },
             "semantic_failures": [
                 failure for failure in saved.semantic_failures
-                if not failure.startswith(f"{args.retry_joint}: joint Gemini assessment failed:")
+                if not failure.startswith(f"{retry_id}:")
             ],
         })
         validated = updated
@@ -127,6 +182,7 @@ def main() -> None:
     validated.provenance = ArtifactProvenance(
         stage="evidence_validation",
         input_fingerprints={"gap_detection": gap_fingerprint},
+        fingerprint_schemes={"gap_detection": gap_scheme},
     )
     print(f"Evidence validation: {len(validated.gap_validations)} gaps")
     for item in validated.gap_validations:
@@ -152,23 +208,14 @@ def main() -> None:
             print(f"  - {failure}")
     for caveat in validated.caveats:
         print(f"Caveat: {caveat}")
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    # Replace atomically only after validation and serialization succeed.
-    temp_name = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=args.output.parent,
-            prefix=f".{args.output.name}.", suffix=".tmp", delete=False,
-        ) as temp_file:
-            temp_name = temp_file.name
-            temp_file.write(validated.model_dump_json(indent=2))
-            temp_file.write("\n")
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_name, args.output)
-    finally:
-        if temp_name and os.path.exists(temp_name):
-            os.unlink(temp_name)
+    # Write atomically only after validation and serialization succeed.
+    payload = validated.model_dump_json(indent=2) + "\n"
+    if args.retry_evidence:
+        write_text_no_overwrite(args.output, payload)
+    else:
+        archived = write_text_preserving_previous(args.output, payload)
+        if archived is not None:
+            print(f"Previous output preserved: {archived}")
     print(f"Saved: {args.output}")
     if any(item.status is GapValidationStatus.VALIDATION_INCOMPLETE
            for item in validated.gap_validations):

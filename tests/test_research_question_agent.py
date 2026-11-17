@@ -235,7 +235,14 @@ def test_nonaccepted_or_incomplete_critic_review_never_calls_model(decision, sta
     result = run(client, critic_result=critic(review_status=status, decision=decision))
 
     assert result.gap_results == []
-    assert result.skipped_gaps[0].gap_id == "GAP-001"
+    assert result.generation_status is GenerationStatus.INCOMPLETE
+    if decision is CriticDecision.REJECT and status is CriticReviewStatus.COMPLETE:
+        # A complete REJECT is a terminal exclusion, not a generation failure.
+        assert [item.gap_id for item in result.excluded_gaps] == ["GAP-001"]
+        assert result.skipped_gaps == []
+    else:
+        assert result.skipped_gaps[0].gap_id == "GAP-001"
+        assert result.excluded_gaps == []
     assert not client.calls
 
 

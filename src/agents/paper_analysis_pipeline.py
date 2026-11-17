@@ -46,6 +46,12 @@ class PaperAnalysisPipeline:
             pdf_downloader or PDFDownloader()
         )
 
+    def begin_run(self) -> None:
+        """Start a new multi-paper run (clears the agent's run-scoped quota state)."""
+        begin = getattr(self.analysis_agent, "begin_run", None)
+        if callable(begin):
+            begin()
+
     def analyze_paper(
         self,
         paper: PaperRecord,
@@ -113,6 +119,8 @@ class PaperAnalysisPipeline:
                 "Both papers have the same identifier."
             )
 
+        self.begin_run()
+
         print("\n========== PAPER 1 ANALYSIS ==========")
 
         result_1 = self.analyze_paper(
@@ -160,6 +168,9 @@ class PaperAnalysisPipeline:
 
         if not analysis_query.strip():
             raise ValueError("Analysis query cannot be empty.")
+
+        # One run: quota state is cleared here, never between papers.
+        self.begin_run()
 
         results: list[PaperAnalysisResult] = []
         excluded: list[ExcludedPaper] = []

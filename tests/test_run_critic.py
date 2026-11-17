@@ -116,6 +116,9 @@ def test_runner_exits_nonzero_when_only_a_gap_review_is_incomplete(tmp_path, mon
     output = tmp_path / "critic_review.json"
     monkeypatch.setattr(runner, "CriticAgent", StubAgent)
     monkeypatch.setattr(runner, "load_optional", lambda *_args: (object(), None, None))
+    # The stub inputs carry no provenance; this test isolates gap-level
+    # incompleteness, so lineage checks are neutralized here (covered elsewhere).
+    monkeypatch.setattr(runner, "require_recorded_fingerprint", lambda *_args: None)
     monkeypatch.setattr(sys, "argv", ["run_critic.py", "--output", str(output)])
 
     with pytest.raises(SystemExit) as exit_info:
@@ -125,3 +128,47 @@ def test_runner_exits_nonzero_when_only_a_gap_review_is_incomplete(tmp_path, mon
     saved = CriticResult.model_validate_json(output.read_text(encoding="utf-8"))
     assert saved.review_status is CriticReviewStatus.COMPLETE
     assert saved.gap_reviews[0].review_status is CriticReviewStatus.INCOMPLETE
+
+
+def test_input_lineage_errors_force_incomplete_status_even_if_agent_reports_complete(
+    tmp_path, monkeypatch,
+):
+    class StubAgent:
+        def critique(self, *_args, **_kwargs):
+            complete = review().model_copy(update={"review_status": CriticReviewStatus.COMPLETE})
+            return CriticResult(review_status=CriticReviewStatus.COMPLETE, gap_reviews=[complete])
+
+    output = tmp_path / "critic_review.json"
+    monkeypatch.setattr(runner, "CriticAgent", StubAgent)
+    monkeypatch.setattr(runner, "load_optional", lambda *_args: (object(), None, None))
+    monkeypatch.setattr(sys, "argv", ["run_critic.py", "--output", str(output)])
+
+    with pytest.raises(SystemExit) as exit_info:
+        runner.main()
+
+    assert exit_info.value.code == 1
+    saved = CriticResult.model_validate_json(output.read_text(encoding="utf-8"))
+    assert saved.review_status is CriticReviewStatus.INCOMPLETE
+    assert any("missing provenance" in error for error in saved.errors)
+
+
+def test_rerun_preserves_previous_critic_output_in_archive(tmp_path, monkeypatch):
+    class StubAgent:
+        def critique(self, *_args, **_kwargs):
+            return CriticResult(review_status=CriticReviewStatus.COMPLETE, gap_reviews=[review()])
+
+    output = tmp_path / "critic_review.json"
+    previous_text = '{"previous": "complete critic review"}\n'
+    output.write_text(previous_text, encoding="utf-8")
+    monkeypatch.setattr(runner, "CriticAgent", StubAgent)
+    monkeypatch.setattr(runner, "load_optional", lambda *_args: (object(), None, None))
+    monkeypatch.setattr(runner, "require_recorded_fingerprint", lambda *_args: None)
+    monkeypatch.setattr(sys, "argv", ["run_critic.py", "--output", str(output)])
+
+    with pytest.raises(SystemExit):
+        runner.main()
+
+    archived = list((tmp_path / "archive").glob("critic_review-*.json"))
+    assert len(archived) == 1
+    assert archived[0].read_text(encoding="utf-8") == previous_text
+    assert output.read_text(encoding="utf-8") != previous_text

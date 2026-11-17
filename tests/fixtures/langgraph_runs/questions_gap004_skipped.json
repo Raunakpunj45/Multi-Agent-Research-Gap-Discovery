@@ -1,0 +1,2102 @@
+{
+  "research_topic": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+  "evaluation_prompt_id": "PROMPT-001",
+  "canonical_prompt_text": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+  "analysis_query": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+  "max_results_per_source": 5,
+  "minimum_papers": 6,
+  "max_papers": 6,
+  "max_revisions": 2,
+  "revision_count": 2,
+  "pdf_paths": {
+    "https://openalex.org/W4402683817": "data/papers/https_openalex_org_W4402683817_ceec3a3b.pdf",
+    "https://openalex.org/W4404782812": "data/papers/https_openalex_org_W4404782812_d7bb4557.pdf",
+    "https://openalex.org/W4410862096": "data/papers/https_openalex_org_W4410862096_4dcf1f0d.pdf",
+    "https://openalex.org/W4412954363": "data/papers/https_openalex_org_W4412954363_730df439.pdf",
+    "https://openalex.org/W4414948975": "data/papers/https_openalex_org_W4414948975_e066d482.pdf",
+    "https://openalex.org/W4416036182": "data/papers/https_openalex_org_W4416036182_7940d150.pdf"
+  },
+  "evaluation_papers": [
+    {
+      "title": "Large Language Models for Automated Open-domain Scientific Hypotheses Discovery",
+      "authors": [
+        "Zonglin Yang",
+        "Xinya Du",
+        "Junxian Li",
+        "Jie Zheng",
+        "Soujanya Poria",
+        "Erik Cambria"
+      ],
+      "year": 2024,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4402683817",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "A Comprehensive Survey of Scientific Large Language Models and Their Applications in Scientific Discovery",
+      "authors": [
+        "Yu Zhang",
+        "Xiusi Chen",
+        "Bowen Jin",
+        "Sheng Wang",
+        "Shuiwang Ji",
+        "Wei Wang",
+        "Jiawei Han"
+      ],
+      "year": 2024,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4404782812",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "Constitutive scientific generative agent (CSGA): Leveraging large language models for automated constitutive model discovery",
+      "authors": [
+        "Marius Tacke",
+        "Matthias Busch",
+        "Kartik Bali",
+        "Kian Abdolazizi",
+        "Kevin Linka",
+        "Christian Cyron",
+        "Roland Aydin"
+      ],
+      "year": 2025,
+      "doi": "10.1007/s44379-025-00022-2",
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4410862096",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "Exploring the role of large language models in the scientific method: from hypothesis to discovery",
+      "authors": [
+        "Yanbo Zhang",
+        "Sumeer A. Khan",
+        "Adnan Mahmud",
+        "Huck Yang",
+        "Alexander Lavin",
+        "Michael Levin",
+        "Jeremy Frey",
+        "Jared Dunnmon",
+        "James Evans",
+        "Alan Bundy",
+        "Saso Dzeroski",
+        "Jesper Tegner",
+        "Hector Zenil"
+      ],
+      "year": 2025,
+      "doi": "10.1038/s44387-025-00019-5",
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4412954363",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "Synthetic stand-in paper (all quoted content replaced; see tests/fixtures/README.md)",
+      "authors": [],
+      "year": 2025,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4414948975",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "From Automation to Autonomy: A Survey on Large Language Models in Scientific Discovery",
+      "authors": [
+        "Tianshi Zheng",
+        "Zheye Deng",
+        "Hong Ting Tsang",
+        "Weiqi Wang",
+        "Jiaxin Bai",
+        "Zihao Wang",
+        "Yangqiu Song"
+      ],
+      "year": 2025,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4416036182",
+      "landing_url": null,
+      "pdf_url": null
+    }
+  ],
+  "evaluation_expected_paper_ids": [
+    "https://openalex.org/W4402683817",
+    "https://openalex.org/W4404782812",
+    "https://openalex.org/W4410862096",
+    "https://openalex.org/W4412954363",
+    "https://openalex.org/W4414948975",
+    "https://openalex.org/W4416036182"
+  ],
+  "evaluation_chroma_dir": "data/evaluation/chroma_multi_agent",
+  "evaluation_chroma_collection": "multi_agent_evaluation",
+  "search_plan": {
+    "original_topic": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+    "research_domain": "Frozen six-paper evaluation corpus",
+    "search_queries": [],
+    "target_modalities": [],
+    "evaluation_focus": [
+      "Analyze only the six manifest-included papers."
+    ]
+  },
+  "papers": [
+    {
+      "title": "Large Language Models for Automated Open-domain Scientific Hypotheses Discovery",
+      "authors": [
+        "Zonglin Yang",
+        "Xinya Du",
+        "Junxian Li",
+        "Jie Zheng",
+        "Soujanya Poria",
+        "Erik Cambria"
+      ],
+      "year": 2024,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4402683817",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "A Comprehensive Survey of Scientific Large Language Models and Their Applications in Scientific Discovery",
+      "authors": [
+        "Yu Zhang",
+        "Xiusi Chen",
+        "Bowen Jin",
+        "Sheng Wang",
+        "Shuiwang Ji",
+        "Wei Wang",
+        "Jiawei Han"
+      ],
+      "year": 2024,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4404782812",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "Constitutive scientific generative agent (CSGA): Leveraging large language models for automated constitutive model discovery",
+      "authors": [
+        "Marius Tacke",
+        "Matthias Busch",
+        "Kartik Bali",
+        "Kian Abdolazizi",
+        "Kevin Linka",
+        "Christian Cyron",
+        "Roland Aydin"
+      ],
+      "year": 2025,
+      "doi": "10.1007/s44379-025-00022-2",
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4410862096",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "Exploring the role of large language models in the scientific method: from hypothesis to discovery",
+      "authors": [
+        "Yanbo Zhang",
+        "Sumeer A. Khan",
+        "Adnan Mahmud",
+        "Huck Yang",
+        "Alexander Lavin",
+        "Michael Levin",
+        "Jeremy Frey",
+        "Jared Dunnmon",
+        "James Evans",
+        "Alan Bundy",
+        "Saso Dzeroski",
+        "Jesper Tegner",
+        "Hector Zenil"
+      ],
+      "year": 2025,
+      "doi": "10.1038/s44387-025-00019-5",
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4412954363",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "Synthetic stand-in paper (all quoted content replaced; see tests/fixtures/README.md)",
+      "authors": [],
+      "year": 2025,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4414948975",
+      "landing_url": null,
+      "pdf_url": null
+    },
+    {
+      "title": "From Automation to Autonomy: A Survey on Large Language Models in Scientific Discovery",
+      "authors": [
+        "Tianshi Zheng",
+        "Zheye Deng",
+        "Hong Ting Tsang",
+        "Weiqi Wang",
+        "Jiaxin Bai",
+        "Zihao Wang",
+        "Yangqiu Song"
+      ],
+      "year": 2025,
+      "doi": null,
+      "abstract": null,
+      "source": "frozen_evaluation_manifest",
+      "source_id": "https://openalex.org/W4416036182",
+      "landing_url": null,
+      "pdf_url": null
+    }
+  ],
+  "paper_analyses": [
+    {
+      "analysis": {
+        "problem": "The paper introduces and addresses a new task called automated open-domain hypothetical induction (TOMATO), focusing on social science research hypothesis discovery where systems automatically generate valid, novel, and helpful scientific hypotheses given only raw web corpus observations.",
+        "methodology": "The paper develops a multi-module framework called MOOSE for the TOMATO task, which contains a base framework and three novel feedback mechanisms for novelty, reality, and clarity.",
+        "dataset": "A dataset consisting of 50 recent social science papers published in top academic journals, manually collected and annotated with details such as background, inspirations, relevant raw web passages, reasoning process, and complexity level.",
+        "results": "Experiments indicate that the MOOSE base framework outperforms an LLM-based baseline, and the three feedback mechanisms progressively improve performance further. Expert evaluations by social science researchers and PhD students show that hypotheses generated by MOOSE are recognized as both novel and valid, indicating that LLMs can generate scientific hypotheses new to humanity and serve as a copilot for scientists.",
+        "limitations": "The dataset consists of only 50 recent papers (though manually collected and detailed), and it is not clear whether the design of the framework can apply to disciplines other than social science.",
+        "future_work": "The provided evidence does not explicitly detail specific future work directions, other than indicating potential for LLMs to serve as a copilot for scientists and suggesting the importance of advocating for the open-sourcing of such systems."
+      },
+      "evidence": [
+        {
+          "chunk_id": "https://openalex.org/W4402683817_chunk_8",
+          "paper_id": "https://openalex.org/W4402683817",
+          "text": "2022) based base- line, and each of the three feedback mechanisms can progressively improve the base framework. During expert evaluation, many hypotheses gen- erated by MOOSE are recognized by social science researchers to be both novel (“not existing in the literature”) and valid (“reflecting reality”). To the best of our knowledge, this is the first work show- ing that LLMs can be leveraged to generate novel and valid research hypotheses, indicating the poten- tial for LLMs to serve as a “copilot” for scientists. 2 Related Work 2.1 NLP Methods for Scientific Discovery Zhong et al. (2023) propose a dataset where each data consists of a research goal, a corpus pair, and a discovery. However, (1) their task needs a human- provided research goal and a pairwise corpus for discovery, which is not an automated setting and has a limited application scope; (2) the discov- ery is not from recent publications. Wang et al. (2023b) is a concurrent work of ours. Compared the first version of two papers, they do not have an iterative feedback for novelty, reality, and clar- ity.",
+          "distance": 0.18950903415679932
+        },
+        {
+          "chunk_id": "https://openalex.org/W4402683817_chunk_41",
+          "paper_id": "https://openalex.org/W4402683817",
+          "text": "and valid scientific hypotheses, indicating the potential of LLMs to serve as a “copilot” for scientists. Limitations From the first look, it might seem that the proposed dataset consists of only 50 recent papers. However, they are all manually collected by experts (PhD stu- dents), and are annotated with lots of details (e.g., identifying background and inspirations, finding relevant raw web passages for background and in- spirations, reasoning process, complexity level). In addition, each paper has been published in a top social science journal, representing the pinnacle of human intelligence. This means it would be incred- ibly exciting if LLMs could propose a hypothesis from even a single one of these recent papers. It might also seem that it is not clear whether the design of the framework can apply to other dis- ciplines. However, to the best of our knowledge, this is the first paper using LLMs that can propose novel scientific hypotheses that are new to human- ity. We choose social science as the breakthrough point since the main data format of social science is language. Table 1",
+          "distance": 0.19148743152618408
+        },
+        {
+          "chunk_id": "https://openalex.org/W4402683817_chunk_40",
+          "paper_id": "https://openalex.org/W4402683817",
+          "text": "by giving the generation of each of the modules in MOOSE. 7 Conclusion In this paper, we propose a new task, automated open-domain hypothetical induction (TOMATO), which is the first task in NLP to focus on social sci- ence research hypotheses discovery. Along with the task, we construct a dataset consisting of 50 recent social science papers published in top academic journals. We also developed a multi-module frame- work MOOSE for the TOMATO task, which con- tains a base framework and three novel feedback mechanisms. Experiments indicate that MOOSE- base outperforms an LLM-based baseline, and the three feedback mechanisms can progressively fur- ther improve over MOOSE-base. Surprisingly, evaluated by PhD students, MOOSE is able to pro- duce many novel (“not existing in the literature”) and valid (“reflecting reality”) research hypotheses. To the best of our knowledge, this is the first work showing that LLMs can be leveraged to generate novel and valid scientific hypotheses, indicating the potential of LLMs to serve as a “copilot” for scientists. Limitations From the first look, it might seem that the proposed dataset consists of",
+          "distance": 0.2404879331588745
+        },
+        {
+          "chunk_id": "https://openalex.org/W4402683817_chunk_2",
+          "paper_id": "https://openalex.org/W4402683817",
+          "text": "dataset for social science academic hypotheses discov- ery, with the final goal to create systems that automatically generate valid, novel, and help- ful scientific hypotheses, given only a pile of raw web corpus. Unlike previous settings, the new dataset requires (1) using open-domain data (raw web corpus) as observations; and (2) proposing hypotheses even new to humanity. A multi-module framework is developed for the task, including three different feedback mech- anisms to boost performance, which exhibits superior performance in terms of both GPT-4 based and expert-based evaluation. To the best of our knowledge, this is the first work show- ing that LLMs are able to generate novel (“not existing in literature”) and valid (“reflecting reality”) scientific hypotheses1. 1 Introduction Logical reasoning is central to human cogni- tion (Goel et al., 2017). It is widely recognized as consisting of three components, which are de- ductive, inductive, and abductive reasoning (Yang et al., 2023b). Hypothetical induction is considered to be an important sub-type of inductive reason- ing (Norton, 2003). It is recognized as the main reasoning type when scientists make observations about",
+          "distance": 0.24136567115783691
+        },
+        {
+          "chunk_id": "https://openalex.org/W4402683817_chunk_43",
+          "paper_id": "https://openalex.org/W4402683817",
+          "text": "ently support controllable generation by simply substituting the automatically searched inputs (e.g., background and inspirations) with those that are manually crafted. Societal Impact: Expert evaluation shows that 13553 MOOSE, an LLM-based system, might already be able to serve as a copilot for researchers across various social science disciplines. Particularly, as depicted in Figure 1, it can assist researchers in the hypothesis formation process, which is the first step for scientific discovery (Wang et al., 2023a). This capability signifies a step towards enhancing the efficiency of scientific exploration by acceler- ating the formation and development of innovative and credible research hypotheses, thereby boosting researchers’ productivity. To maximize its impact and ensure equitable access, it is imperative to advo- cate for the open-sourcing of such systems, thereby democratizing access for the global scientific com- munity. Acknowledgement This research/project is supported by the Ministry of Education, Singapore under its MOE Academic Research Fund Tier 2 (STEM RIE2025 Award MOE-T2EP20123-0005). We thank Qingyun Wang, Jinjie Ni, Xulang Zhang, and Qika Lin for their insightful comments on the first finished draft of this work. References",
+          "distance": 0.2582319974899292
+        }
+      ]
+    },
+    {
+      "analysis": {
+        "problem": "The paper addresses the need for a comprehensive review of large language models (LLMs) in various scientific fields across diverse modalities, noting that existing surveys typically focus on only one or two fields or a single modality.",
+        "methodology": "The paper comprehensively surveys over 260 scientific LLMs, discussing their commonalities and differences, pre-training datasets, model architectures, evaluation tasks, and how they are deployed to benefit scientific discovery across different fields and modalities.",
+        "dataset": "The survey covers pre-training datasets and corpora used by scientific LLMs, including bibliographic databases like AMiner, Microsoft Academic Graph (MAG), Semantic Scholar, and S2ORC, as well as resources related to molecules, proteins, tables, and metadata.",
+        "results": "The paper provides a structured summary and analysis of scientific LLMs, detailing their pre-training strategies, architectures, evaluation tasks, and applications in augmenting various aspects of the scientific discovery process such as hypothesis generation, theorem proving, experiment design, drug discovery, and weather forecasting.",
+        "limitations": "The survey primarily covers LLMs in mathematics and natural sciences, omitting social sciences due to space limitations. It also excludes studies that evaluate general-purpose LLMs on new scientific benchmark datasets without domain-specific pre-training or knowledge augmentation.",
+        "future_work": "Future research directions mentioned include expanding the survey of LLMs in social sciences, diving into fine-grained themes using automatically curated knowledge graphs to preserve domain-specific tail knowledge, and improving generalization to out-of-distribution scientific data."
+      },
+      "evidence": [
+        {
+          "chunk_id": "https://openalex.org/W4404782812_chunk_9",
+          "paper_id": "https://openalex.org/W4404782812",
+          "text": "pre-training datasets, model archi- tectures, and evaluation tasks of scientific LLMs. Following our motivation, when we discuss model architectures in detail, we link them back to Fig- ure 1 to build cross-field cross-modal connections. Moreover, we provide a structured summary of these scientific LLMs in Table A1-Table A6 (Ap- pendix A). Furthermore, for different fields, we introduce how LLMs have been deployed to benefit science by augmenting different aspects and stages of the scientific discovery process, such as hypothe- sis generation, theorem proving, experiment design, drug discovery, and weather forecasting. 8784 2 LLMs in General Science (Table A1) 2.1 Language The most commonly used pre-training corpora for scientific LLMs are research papers from biblio- graphic databases, such as AMiner (Tang et al., 2008), Microsoft Academic Graph (MAG) (Sinha et al., 2015), and Semantic Scholar (Ammar et al., 2018). Some of these sources (e.g., S2ORC (Lo et al., 2020)) contain full-text information of pa- pers, while the others have titles and abstracts only. The evolution of scientific LLMs bears simi- larity to that of general-domain LLMs. Specif- ically, pioneering models utilize",
+          "distance": 0.19197547435760498
+        },
+        {
+          "chunk_id": "https://openalex.org/W4404782812_chunk_2",
+          "paper_id": "https://openalex.org/W4404782812",
+          "text": "scientific LLMs regarding their architectures and pre- training techniques. To this end, we compre- hensively survey over 260 scientific LLMs, discuss their commonalities and differences, as well as summarize pre-training datasets and evaluation tasks for each field and modal- ity. Moreover, we investigate how LLMs have been deployed to benefit scientific discov- ery. Resources related to this survey are avail- able at https://github.com/yuzhimanhua/ Awesome-Scientific-Language-Models. 1 Introduction The emergence of large language models (LLMs) (Zhao et al., 2023c) brings a new paradigm to nat- ural language processing (NLP) by replacing spe- cialized models designed for each task with unified models that are reasonably effective for a wide spectrum of problems. In the scientific domain, such a paradigm not only reshapes people’s strate- gies to handle tasks related to natural language (e.g., scientific papers, medical records, and climate re- ports) but also inspires analogous ideas to deal with other types of data (e.g., molecules, proteins, tables, and metadata). In addition to understanding exist- ing scientific data, LLMs have shown their poten- tial to accelerate scientific discovery (Wang et al., 2023c; Zhang et",
+          "distance": 0.2022932767868042
+        },
+        {
+          "chunk_id": "https://openalex.org/W4404782812_chunk_3",
+          "paper_id": "https://openalex.org/W4404782812",
+          "text": "(e.g., molecules, proteins, tables, and metadata). In addition to understanding exist- ing scientific data, LLMs have shown their poten- tial to accelerate scientific discovery (Wang et al., 2023c; Zhang et al., 2023e; Wang et al., 2024d) through generation, planning, etc. ∗Equal contribution Given the broad and profound impact of LLMs in various scientific fields across diverse modalities, it becomes necessary to comprehensively review related work in this direction. However, existing scientific LLM surveys typically focus on either one or two fields (e.g., biomedicine (Wang et al., 2023a; He et al., 2024b; Pei et al., 2024; Zhang et al., 2024d) and chemistry (Xia et al., 2023; Pei et al., 2024; Zhang et al., 2024d)) or one modality (e.g., text (Ho et al., 2024)) only. In fact, if we take a holistic view of the research landscape, we can observe similar and interrelated techniques used to develop LLMs for different fields and modalities. Figure 1 depicts three major types of scien- tific LLM pre-training strategies (i.e., COLUMNS 1 to 3), for each of which we give 4 examples (i.e., TYPES A to",
+          "distance": 0.20795130729675293
+        },
+        {
+          "chunk_id": "https://openalex.org/W4404782812_chunk_40",
+          "paper_id": "https://openalex.org/W4404782812",
+          "text": "across dif- ferent fields and modalities. Beyond reviewing prior research, we present several challenges to inspire further exploration of this topic. Diving into Fine-Grained Themes. Most existing scientific LLMs target a coarse-grained field (e.g., chemistry), while some tasks rely on highly spe- cialized knowledge of a fine-grained theme (e.g., Suzuki coupling). When LLMs are pre-trained on more general corpora, frequently appeared sig- nals may dominate the model parameter space, and domain-specific tail knowledge may be wiped out. We believe that automatically curating in- depth, theme-focused knowledge graphs (Hope et al., 2021) to guide the generation process will be a promising direction to tackle this issue. Generalizing to Out-of-Distribution Scientific Data. In the scientific domain, it is common that the testing distribution shifts from the training dis- tribution (Zhang et al., 2023e): novel scientific concepts keep emerging in newly published papers; unseen molecules with different scaffolds and un- seen proteins with different numbers of peptide chains may appear during testing. Handling such out-of-distribution data remains a challenge for pre- trained scientific LLMs. To our knowledge, invari- ant learning (Arjovsky et al.,",
+          "distance": 0.22883254289627075
+        },
+        {
+          "chunk_id": "https://openalex.org/W4404782812_chunk_42",
+          "paper_id": "https://openalex.org/W4404782812",
+          "text": "opportunities to further en- hance the trustworthiness of scientific LLMs. Limitations This survey primarily covers LLMs in mathematics and natural sciences. We are aware that LLMs can also significantly impact social sciences by achiev- ing remarkable performance in representative tasks (Ziems et al., 2024) and serving as agents for so- cial simulation experiments (Horton, 2023), but we leave the survey of these efforts as future work due to space limitations. In addition, this paper fo- cuses on LLMs pre-trained on scientific data or aug- mented with domain-specific knowledge to benefit scientific discovery. There are studies (Guo et al., 2023; Wang et al., 2024f; Yue et al., 2024a; Liang et al., 2024d) proposing new benchmark datasets of scientific problems but evaluating the perfor- mance of general-purpose LLMs only, and we do not include these works in our survey. Furthermore, some LLMs may belong to more than one field or modality category given our classification criteria in the paper. For instance, BioMedGPT (Luo et al., 2023c) is pre-trained on biology and chemistry data jointly; GIT-Mol (Liu et al., 2024a) considers the language,",
+          "distance": 0.22934859991073608
+        }
+      ]
+    },
+    {
+      "analysis": {
+        "problem": "Evaluating the capabilities of large language models (LLMs) in constitutive modeling, specifically by comparing general-purpose LLM-based scientific discovery methods (scientific generative agent, SGA) against highly specialized expert methods like constitutive artificial neural networks (CANNs).",
+        "methodology": "Using a bilevel optimization approach where the outer loop generates candidate models or uncalibrated hypotheses using LLMs and the inner loop refines candidates through parameter optimization. The paper introduces the constitutive scientific generative agent (CSGA), which augments SGA prompts with domain-specific data and materials theory, and experiments with different constitutive modeling paths (such as invariants or principal stretches) to compensate for a lack of theoretical knowledge.",
+        "dataset": "Experimental datasets and multiaxial evaluation data using synthetic data.",
+        "results": "The specialized CANN achieved near-perfect accuracy, while the general SGA underperformed. However, augmenting SGA prompts with domain-specific data and materials theory (creating CSGA) substantially closed the accuracy gap, almost matching CANN on experimental datasets and demonstrating strong generalization on multiaxial evaluation with synthetic data. Among tested LLMs, OpenAI's o1-preview and o3-mini performed best, with the open-source DeepSeek R1 nearly matching their performance.",
+        "limitations": "OpenAI's closed-source models introduce usage barriers and limit reproducibility to some extent. Furthermore, general LLMs alone currently lack specialization and accuracy without domain-specific data and materials theory augmentation.",
+        "future_work": "Anticipating that similar or even superior results will be achievable with open-source LLMs in the near future as LLMs evolve multimodal capabilities."
+      },
+      "evidence": [
+        {
+          "chunk_id": "https://openalex.org/W4410862096_chunk_52",
+          "paper_id": "https://openalex.org/W4410862096",
+          "text": "use prompts from the original SGA study [34] without reﬁnement. We tried to increase LLM creativity by multiplying the loss provided as feedback on previous suggestions, but this turned out to be ineffective, as shown in Fig. 8. To understand the impact of different constitu- tive modeling paths, such as using invariants or principal stretches, we instructed the LLM to follow these paths and evaluated the results. We believe this approach does not con- stitute prompt engineering overhead but rather simulates the scenario of modeling a material without prior knowledge of effective methods. By experimenting with different paths, we can compensate for the lack of theoretical knowledge through computational resources. Among the LLMs we tested, OpenAI’s closed-source models, o1-preview and o3-mini, perform best, though they introduce usage barriers and limit reproducibility to some extent. However, the open-source LLM DeepSeek R1 nearly matches their performance. Our work represents a snapshot of a rapidly evolving ﬁeld, with new and more powerful LLMs being released weekly. Currently, OpenAI’s LLMs appear to be slightly ahead, but slightly less accurate results are possible today with",
+          "distance": 0.25109219551086426
+        },
+        {
+          "chunk_id": "https://openalex.org/W4410862096_chunk_9",
+          "paper_id": "https://openalex.org/W4410862096",
+          "text": "opti- mization approach for biophysical sequence optimization. Ma et al. [34] proposed a comparable, but more general framework for scientiﬁc equation discovery, which they call scientiﬁc generative agent (SGA). Both methods utilize a bilevel optimization: the outer loop generates sequence can- didates or uncalibrated hypotheses using LLMs, while the inner loop iteratively reﬁnes these candidates through param- eter optimization. Another comparable approach is called OpenFOAMGPT and was introduced by Pandey et al [35] for simulating ﬂuid dynamics at multiple optimization layers. These approaches share that the complex candidate or model generation is covered by the LLM and only the parameteriza- tion is conducted by a second level or layer of optimization. This work bridges the gap between highly automated, easy-to-use, and fully interpretable LLM-based approaches, which currently lack specialization and accuracy, and highly specialized expert methods such as CANNs, EUCLID, and other frameworks discussed above. While LLMs have shown progress in conversational and analytical tasks, a systematic 123 Machine Learning for Computational Science and Engineering (2025) 1:23 Page 3 of 24 23 evaluation of their capabilities in constitutive modeling com-",
+          "distance": 0.26994216442108154
+        },
+        {
+          "chunk_id": "https://openalex.org/W4410862096_chunk_53",
+          "paper_id": "https://openalex.org/W4410862096",
+          "text": "a rapidly evolving ﬁeld, with new and more powerful LLMs being released weekly. Currently, OpenAI’s LLMs appear to be slightly ahead, but slightly less accurate results are possible today with models like DeepSeek R1, and we anticipate that similar or even superior results will be achiev- able with open-source LLMs in the near future. 6 Conclusions In this study, we benchmarked the general LLM-based SGA against the specialized CANN. As anticipated, the CANN achievednear-perfect accuracyacross our benchmarks, while the general SGA underperformed. By augmenting SGA prompts with domain-speciﬁc data and materials theory to create the specialized CSGA, we substantially closed the accuracy gap: The CSGA almost matches the CANN on experimental datasets and demonstrates strong gener- alization on the multiaxial evaluation with synthetic data. Although the CANN remains more accurate and is highly automated, its complex setup and architecture pose chal- lenges for users. In contrast, CSGA’s plain text interface allows users to inject desired model modiﬁcations or qualita- tive insights - and, as LLMs evolve multimodal capabilities, even non-textual information - while automatically gener- ating fully interpretable, commented constitutive",
+          "distance": 0.288753867149353
+        },
+        {
+          "chunk_id": "https://openalex.org/W4410862096_chunk_8",
+          "paper_id": "https://openalex.org/W4410862096",
+          "text": "on edges instead of ﬁxed ones on nodes. Building on KANs, Abdolazizi et al. [31] developed constitutive Kolmogorov- Arnold networks (CKANs), which specialize in providing symbolic expressions without any remaining black-box ele- ments, making them straightforward to interpret. From the initial manual derivation of constitutive mod- els, we have advanced to sophisticated techniques such as PANNs, CANNs, NODEs, symbolic regression, EUCLID, andCKANs.Thesemodelsoffernear-completeinterpretabil- ity, high accuracy, and signiﬁcant automation. However, they all share a common limitation: the need for extensive expert knowledge to prepare data in accordance with the model requirements, select the correct model conﬁguration, and interpret the results. Large Language Models (LLMs) present a promising solution to this challenge. With their extensive pretraining corpus, LLMs have the potential to contribute to a wide range of research ﬁelds and can effectively be focused on desired specializations, as Han and Jiang showed [32]. Chen et al. [33] developed an LLM-based bilevel opti- mization approach for biophysical sequence optimization. Ma et al. [34] proposed a comparable, but more general framework for scientiﬁc equation discovery, which they call scientiﬁc generative agent (SGA). Both",
+          "distance": 0.29753053188323975
+        },
+        {
+          "chunk_id": "https://openalex.org/W4410862096_chunk_1",
+          "paper_id": "https://openalex.org/W4410862096",
+          "text": "Machine Learning for Computational Science and Engineering (2025) 1:23 https://doi.org/10.1007/s44379-025-00022-2 RESEARCH Constitutive scientiﬁc generative agent (CSGA): Leveraging large language models for automated constitutive model discovery Marius Tacke1 · Matthias Busch2 · Kartik Bali1 · Kian Abdolazizi2 · Kevin Linka2 · Christian Cyron1,2 · Roland Aydin1,2 Received: 28 March 2025 / Accepted: 28 April 2025 / Published online: 29 May 2025 © The Author(s) 2025 Abstract Data-driven approaches for constitutive modeling enable rapid, automated generation of models that predict a material’s mechanical response under load. Integrating theoretical knowledge into these approaches, which are then called grey-box approaches, can improve sample efﬁciency, extrapolation capability, and interpretability, albeit typically at the cost of experts requiredtousethem.Recently,general-purposelargelanguagemodel(LLM)-basedscientiﬁcdiscoverymethodshaveemerged as user-friendly approaches to scientiﬁc discovery. In this work, we compare two representatives of these paradigms: highly specialized constitutive artiﬁcial neural networks (CANNs) and the general LLM-based scientiﬁc generative agent (SGA) to evaluate current LLM capabilities in constitutive modeling. In addition, we introduce the constitutive scientiﬁc generative agent (CSGA) to combine both approaches’ strengths by enriching the SGA’s prompts with domain-speciﬁc data and materials theory. We compare CANN,",
+          "distance": 0.30681121349334717
+        }
+      ]
+    },
+    {
+      "analysis": {
+        "problem": "Investigating the roles, challenges, and opportunities of Large Language Models (LLMs) in scientific discovery, specifically focusing on their dual functions in experimental accuracy and creative hypothesis generation.",
+        "methodology": "A perspective review and analysis of Large Language Models and generative AI techniques applied to scientific research, including prompt engineering, Retrieval-Augmented Generation (RAG), text embedding for semantic search in vector databases, and AI-powered autonomous systems.",
+        "dataset": "The information is not available in the provided evidence.",
+        "results": "Evidence indicates that LLMs can effectively propose novel ideas and hypotheses (such as drug combinations for treating MCF7 breast cancer cells while avoiding harm to healthy cells), assist in literature reviews and interdisciplinary research, design experiments (such as CRISPR-GPT in biology), and operate through autonomous systems like BioDiscoveryAgent.",
+        "limitations": "LLMs face limitations such as hallucinations, limited reasoning capabilities, lack of transparency, the need for high standards of truthfulness, complex reasoning, and interpretability in scientific domains.",
+        "future_work": "Future research directions include significant advances in AI for Science approaches regarding physics-infused machine learning, causal reasoning, and rigorous testing systems for LLMs interacting with the natural world, alongside promoting the publication of negative results and failed research."
+      },
+      "evidence": [
+        {
+          "chunk_id": "https://openalex.org/W4412954363_chunk_61",
+          "paper_id": "https://openalex.org/W4412954363",
+          "text": "and idea generation. Furthermore, LLMs facilitate interdisciplinary research, bridging the knowledge divide by summarising complex ideas across ﬁelds, thereby fostering collaborations previously limited by domain-speciﬁc language and methods. Beyond these beneﬁts, the massive text-processing capabilities of LLMs create new opportunities for utilizing failed research failed research, which has received limited attention. Therefore, we encourage the scientiﬁc community to promote the publication of negative results and failed research. https://doi.org/10.1038/s44387-025-00019-5 Perspective npj Artiﬁcial Intelligence | (2025) 1:14 9 The utility of LLMs in designing experiments is another notable advancement. Models like CRISPR-GPT in biology exemplify this by automating gene-editing experiment designs, signiﬁcantly accelerating genomics research. Moreover, LLM-powered autonomous systems like BioDiscoveryAgent indicate a shift towards AI-driven experimental pro- cesses that can augment researchers’ efﬁciency and, more importantly, enable scientiﬁc exploration previously constrained by resource limitations. So, Large Language Models (LLMs) present two contrasting roles in scientiﬁc discovery: accuracy in experimental phases and creativity in hypothesis generation. On the one hand, scientiﬁc research requires LLMs to be reliable, accurate, and capable of logical reasoning, particularly for experimental validation. On the other, there is",
+          "distance": 0.18333280086517334
+        },
+        {
+          "chunk_id": "https://openalex.org/W4412954363_chunk_38",
+          "paper_id": "https://openalex.org/W4412954363",
+          "text": "Hypothesis Space? Can LLMs also explore complex environments in an open-ended way? These are open-ended challenges addressing the (unknown) limits of the capabilities of LLMs and Generative AI. Proposing hypotheses is a crucial step in scientiﬁc discovery, perhaps the most important since it often involves signiﬁcant creativity and inno- vation. Scientists propose hypotheses to explore unknown topics or address research questions. This step often involves novel ideas, recombining existing literature, and key insights. Experiment design and subsequent veriﬁcation are based on these hypotheses. Thus, hypothesis proposing is a central step that connects observation and experiments. Evidence indicates that LLMs can propose novel ideas, such as drug combinations135, with designed prompting, thus underscoring the impor- tance of prompting, as discussed previously. An example is the use of LLMs for drug discovery: In ref. 135 LLMs are prompted to propose novel com- binations of drugs for treating MCF7 breast cancer cells while incorporating additionalconstraintssuchasavoidingharmtohealthycellsandprioritizing FDA-approved and readily accessible drugs. The experiment results demonstrate that LLMs can effectively propose hypothetical drug combi- nations.Moreadvancedtechniquescanalsoimprovenovelty,suchasasking https://doi.org/10.1038/s44387-025-00019-5 Perspective npj Artiﬁcial Intelligence | (2025) 1:14 6 LLMs",
+          "distance": 0.19196975231170654
+        },
+        {
+          "chunk_id": "https://openalex.org/W4412954363_chunk_43",
+          "paper_id": "https://openalex.org/W4412954363",
+          "text": "value-added dimension of LLMs. The opportunities described in this paper show potential to shift this mode of scientiﬁc practice to be more reliant on AI-driven approaches, but not without signiﬁcant advances in AI for Science approaches with respect to physics-infused ML and causal reasoning and in rigorous testing systems for LLMs interacting with the natural world. Challenges and opportunities While LLMs have shown signs of delivering promising results and of having positive impacts on scientiﬁc discovery, investigators have recognised their limitations,suchashallucinations,limitedreasoningcapabilities,andlackof transparency. Compared to everyday usage, when applied to scientiﬁc domains, these limitations require careful consideration, as scientiﬁc pro- cesses and discoveries require high standards of truthfulness, complex reasoning, and interpretability. The scientiﬁc community’s increasing recognition and communication of these limitations of LLMs is essential to enabling solutions while also limiting expectations. Such rigour is a cor- nerstone of science and engineering, and a requirement if LLMs are to play a practical role. Beyond all this, LLMs also affect scientiﬁc research at the scientiﬁc community level. While many papers and reviews involve LLMs’ assistance, LLMs still face challenges in producing",
+          "distance": 0.19339877367019653
+        },
+        {
+          "chunk_id": "https://openalex.org/W4412954363_chunk_40",
+          "paper_id": "https://openalex.org/W4412954363",
+          "text": "heatmaps, GPT-4 can propose potential explana- tions for neuron behaviour116. Besides directly proposing hypotheses, a signiﬁcant part of creativity combines existing knowledge,making literature research critical. With their vast stored compressed knowledge142,143, LLMs can be viewed as databases queried using natural language123. This not only accelerates the search but also breaks down barriers of domain terminology, making it easier to access interdisciplinary knowledge. For accessing more up-to-date and domain- speciﬁc information, LLMs can help scientists by using the RAG method and accessing internet information, see Fig. 2. Generally, text embedding is used for semantically searching vector databases45,92. For example, STORM144 proposes an LLM-powered literature review agent that, for a given topic, actively searches literature on the internet from different per- spectivesand automatically generates follow-up questions to improve depth and thoroughness. Another important example is Deep Research145,146, which integrates internet browsing and reasoning to deliver more in-depth and relevant literature review results. LLMs can propose novel hypotheses by retrieving related literature as inspiration, ﬁnding semantically similar content, connecting concepts, and utilising citations based on research topicsand motivation121.Alternatively,itmayrequire additionalingredients or experiments to extrapolate",
+          "distance": 0.19378912448883057
+        },
+        {
+          "chunk_id": "https://openalex.org/W4412954363_chunk_7",
+          "paper_id": "https://openalex.org/W4412954363",
+          "text": "scientiﬁc process, both its inductive and deductive components, can and should be transformed by AI techniques. Current use of LLMs—from specialised scientiﬁc copilots to LLM-assisted scientiﬁc discoveries The ability of Large Language Models (LLMs) to process and generate human-like text, handle vast amounts of data, and analyse complex patterns withpotentiallysomereasoningcapabilitieshasincreasinglysetthestagefor them to be used in scientiﬁc research across various disciplines. Their applications range from simple tasks, such as acting as copilots to assist scientists, to complex tasks, such as autonomously performing experiments and proposing novel hypotheses. We will ﬁrst introduce the fundamental concepts of LLMs and then review their various applications in scientiﬁc discovery. Prompting LLMs: from chatbot to prompt engineering Current mainstream LLMs are primarily conditional generative models, wheretheinput,suchasthebeginningofasentenceorinstructions,servesas a condition, and the output is the generated text, such as a reply. This text is typically sampled auto-regressively: the next token (considered the building block of words) is sampled from a predicted distribution. See Fig. 1A. Given LLMs’ capabilities in computation and emerging potential for reasoning, which we deﬁne as the ability to solve tasks that require rea- soning,",
+          "distance": 0.19684892892837524
+        }
+      ]
+    },
+    {
+      "analysis": {
+        "problem": "(Synthetic fixture analysis of synthetic excerpts; not derived from the cited article.) The stand-in paper examines how language-model assistants used in laboratory science can give confident but false statements and explanations that do not describe how their answers were produced.",
+        "methodology": "It compares adapting a general-purpose language model through instructions, retrieved reference passages, or additional training with compact task-specific models whose predictions are checked against curated reference data, and treats inspection of model behaviour as a direction to test.",
+        "dataset": "The synthetic excerpts name no specific datasets, benchmarks, or evaluation resources.",
+        "results": "The excerpts state, qualitatively and without measurements, that grounding in curated domain material made false statements less frequent and improved scores on narrow tasks with few labelled examples.",
+        "limitations": "Stated limitations are fluent but false outputs, explanations that diverge from the actual process, reviewers relying too heavily on explanations, incomplete or outdated reference tables, and the lack of shared benchmarks.",
+        "future_work": "Suggested directions are shared benchmarks for explanation reliability, review workflows that keep a person responsible for each decision, and agent workflows whose explanations can be audited."
+      },
+      "evidence": [
+        {
+          "chunk_id": "https://openalex.org/W4414948975_chunk_65",
+          "paper_id": "https://openalex.org/W4414948975",
+          "text": "[Synthetic fixture text; not from the cited article.] Section 4.2, illustrative. Language-model assistants are increasingly asked to draft procedures, summarise prior results, and propose candidate explanations for laboratory observations. A recurring difficulty is that a language model may return a fluent answer that reads as credible yet states something false. A second difficulty is that the explanation a model writes for its answer need not describe the steps that actually produced it, so a convincing rationale can hide an unreliable process. Both problems matter more in experimental science than in casual use, because a wrong suggestion can cost materials, instrument time, and the trust of the people reviewing the work. Grounding the model in curated reference material is proposed here as a practical way to reduce both problems. Supplying the model with vetted domain material, whether through instructions, retrieved passages, or additional training, gives reviewers a concrete way to check its claims and makes such errors less frequent. Pairing such grounding with inspection of the model's internal behaviour is treated as a direction worth testing rather than an established result, and the synthetic study reports no measurements for it.",
+          "distance": 0.19713330268859863
+        },
+        {
+          "chunk_id": "https://openalex.org/W4414948975_chunk_76",
+          "paper_id": "https://openalex.org/W4414948975",
+          "text": "[Synthetic fixture text; not from the cited article.] Section 5.1, illustrative. The synthetic survey compares two ways of bringing domain knowledge into automated analysis. The first adapts a general-purpose language model by adding instructions, retrieved reference passages, or a short round of additional training on vetted examples. The second relies on compact task-specific models whose predictions are checked against curated reference data before they are reported. Compact models are cheaper to run and easier to audit, but each one covers only a narrow task, while a general model covers many tasks but is harder to verify. The survey does not rank the two approaches; it argues that the choice depends on how costly an undetected error would be in a given setting. Looking ahead, it calls for agent workflows whose explanations can be audited step by step, so that a reviewer can see which reference items supported each intermediate claim and can reject a step without discarding the whole run.",
+          "distance": 0.22431910037994385
+        },
+        {
+          "chunk_id": "https://openalex.org/W4414948975_chunk_77",
+          "paper_id": "https://openalex.org/W4414948975",
+          "text": "[Synthetic fixture text; not from the cited article.] Section 6, illustrative. Three directions are proposed for future work. First, the community lacks shared benchmarks that test whether a model's stated explanation matches the evidence it actually relied on; the synthetic authors suggest pairing each benchmark item with a reference trace that reviewers can compare against. Second, review workflows should keep a person responsible for accepting or rejecting each automated suggestion, with the interface showing the supporting references next to the claim instead of hiding them behind a summary. Third, agent workflows that plan, run, and report simple experiments should record every intermediate decision so that their explanations can be audited after the fact. The synthetic text stresses that these proposals are untested, that none of them removes the need for domain expertise, and that progress should be measured on tasks where the correct answer is known in advance.",
+          "distance": 0.2352898120880127
+        },
+        {
+          "chunk_id": "https://openalex.org/W4414948975_chunk_51",
+          "paper_id": "https://openalex.org/W4414948975",
+          "text": "[Synthetic fixture text; not from the cited article.] Section 3.4, illustrative. Many scientific prediction problems come with only a few hundred labelled examples, which is too few to train a large model from scratch. In the illustrative tasks considered here, adding curated domain material to a general model improved its scores on narrow prediction problems where labelled examples were scarce. The synthetic authors attribute the gain to the model reusing relationships that the reference material states explicitly, rather than having to infer them from the small training set. They also note that grounding made the model's written explanations easier to check, because each explanation could point to a specific reference passage. No optimisation procedure, constraint formulation, or parameter-fitting method is described in this section, and the reported improvements are qualitative statements rather than measured results. The section closes by cautioning that gains on narrow tasks may not carry over to broader problems with different data.",
+          "distance": 0.23856711387634277
+        },
+        {
+          "chunk_id": "https://openalex.org/W4414948975_chunk_69",
+          "paper_id": "https://openalex.org/W4414948975",
+          "text": "[Synthetic fixture text; not from the cited article.] Section 5.3, illustrative. Compact task-specific models can be wrapped with a simple verification step: each prediction is compared with entries in a curated reference table, and predictions that disagree with known values are flagged for review instead of being reported. The synthetic survey argues that this kind of check is easy to explain to non-specialists and gives an auditable record of why a result was accepted. It also lists limitations. Reviewers may come to rely too heavily on a model's explanation and stop examining the underlying data. Reference tables can be incomplete or out of date, so a prediction that disagrees with them is not necessarily wrong. Finally, a verification step only catches errors that the reference data already covers, which leaves genuinely new findings unchecked. The section recommends recording when and by whom each reference table was last reviewed.",
+          "distance": 0.24060523509979248
+        }
+      ]
+    },
+    {
+      "analysis": {
+        "problem": "The paper addresses the challenge that the accelerated pace of LLM evolution and their deepening integration into complex research complicate systematic assessment, leaving their comprehensive impact and trajectory towards greater independence across the entire scientific method underexplored.",
+        "methodology": "The paper anchors its analysis and structures its understanding of LLM applications across the six stages of the established scientific method: Observation and Problem Definition, Hypothesis Development, Experimentation and Data Collection, Data Analysis and Interpretation, Drawing Conclusions, and Iteration and Refinement.",
+        "dataset": "The paper discusses various benchmarks and evaluation resources mentioned in literature, such as IdeaBench, LiveIdeaBench, SciReplicate-Bench, and Paper-Bench, as well as domain-specific natural science benchmarks.",
+        "results": "The provided evidence does not contain specific experimental results or findings of a new experiment, but rather reviews and categorizes how LLMs are applied across the stages of the scientific method (such as idea generation, hypothesis formulation, experimentation, validation, and refinement).",
+        "limitations": "The information regarding limitations is not available in the provided evidence.",
+        "future_work": "The information regarding future work is not available in the provided evidence, beyond charting the current landscape and future directions across the stages of the scientific method."
+      },
+      "evidence": [
+        {
+          "chunk_id": "https://openalex.org/W4416036182_chunk_18",
+          "paper_id": "https://openalex.org/W4416036182",
+          "text": "natural science disciplines have in- vestigated LLM-based idea generation in domain- specific contexts. For example, Ciuc˘a et al. (2023) proposed adopting adversarial prompting for ef- fective idea generation in astronomy. In biology, Buehler (2024) enhanced idea generation by inte- grating knowledge extraction and graph representa- tions. Hypothesis Formulation Building upon iden- tified ideas, the design of testable scientific hy- potheses has also been a significant focus. Qi et al. (2023) and Yang et al. (2024) examined the ability of LLMs to propose hypotheses, demon- strating their considerable capacity for generating novel yet valid hypotheses under open-ended con- straints. Methodologies such as Scideator (Raden- sky et al., 2025) have been developed to investigate human-LLM collaboration to facilitate grounded idea and hypothesis generation. Other approaches have focused on ensuring the generated hypothe- ses are well-founded; for instance, HypER gen- erates literature-grounded hypotheses with clear provenance (Vasu et al., 2025), while O’Neill et al. (2025) leverage structured data from scientific pa- pers for the same purpose. Within natural science, benchmarks (Qi et al., 2024) and methods (O’Brien et al., 2024) have extended hypothesis",
+          "distance": 0.15962255001068115
+        },
+        {
+          "chunk_id": "https://openalex.org/W4416036182_chunk_17",
+          "paper_id": "https://openalex.org/W4416036182",
+          "text": "research ideas and hypotheses. In the general do- main, benchmarks such as IdeaBench (Guo et al., 2024a) and LiveIdeaBench (Ruan et al., 2025) have evaluated the capability of LLMs to generate research ideas based on provided literature sum- maries. Concurrently, LLM-based agent frame- works, including Nova (Hu et al., 2024a), SciA- gents (Ghafarollahi and Buehler, 2024b), and KG- CoI (Xiong et al., 2024), have been proposed to en- hance idea generation through effective reasoning over academic knowledge graphs, iterative plan- ning, and searching. More specific methodologies, such as employing dynamic control to guide the cre- ative process, have also been introduced (Li et al., 2024c). Moreover, several exploratory studies have assessed the novelty and quality of LLM-generated ideas for AI research, underscoring the potential for automated idea generation when coupled with appropriate human guidance (Si et al., 2024; Feng et al., 2025; Qiu et al., 2025). Furthermore, many studies within natural science disciplines have in- vestigated LLM-based idea generation in domain- specific contexts. For example, Ciuc˘a et al. (2023) proposed adopting adversarial prompting for ef- fective idea generation in astronomy.",
+          "distance": 0.1829405426979065
+        },
+        {
+          "chunk_id": "https://openalex.org/W4416036182_chunk_4",
+          "paper_id": "https://openalex.org/W4416036182",
+          "text": "Refinement, Strategic Hypothesis Optimization. Hypothesis Development Observation and Problem Definition Experimentation and Data Collection Data Analysis and Interpretation Drawing Conclusions Iteration and Refinement Figure 1: Stages of the scientific method with corre- sponding LLM applications and research topics. discovery present notable challenges. The accel- erated pace of LLM evolution and their deepen- ing integration into complex research complicate systematic assessment, necessitating conceptual frameworks to structure current understanding and chart future directions. While existing surveys have provided valuable overviews of LLMs in various scientific domains (Zhang et al., 2024, 2025a) or have cataloged particular AI techniques for science (Luo et al., 2025; Reddy and Shojaee, 2025), they often focus on discipline-specific applications or a static snapshot of LLM capabilities. Consequently, existing reviews may overlook the crucial trend of increasing LLM autonomy and their evolving roles across the entire scientific method, leaving their comprehensive impact and trajectory towards greater independence underexplored. To systematically chart this evolving landscape and address the identified gap, we anchor our anal- ysis in the six stages (Figure 1) of the established scientific method (Popper, 1935; Kuhn, 1962):",
+          "distance": 0.2060644030570984
+        },
+        {
+          "chunk_id": "https://openalex.org/W4416036182_chunk_24",
+          "paper_id": "https://openalex.org/W4416036182",
+          "text": "important ap- plication at this stage is the automatic validation of hypotheses by LLMs. Takagi et al. (2023) demonstrated that LLMs possess considerable capabilities in automatically generating code to verify research hypotheses within simplified ma- chine learning problems. Benchmarks such as SciReplicate-Bench (Xiang et al., 2025) and Paper- Bench (Starace et al., 2025) have further extended this concept to evaluating the replication of real- world research papers. A distinct but related line of inquiry explores predicting empirical AI research outcomes directly with language models, assessing whether LLMs can anticipate experimental results without full execution (Wen et al., 2025). Further- more, Xu et al. (2025c) have navigated this domain into physics research, aiming to enhance the inter- pretability of the discovery process through the use of multi-agent workflows. 3.6 Iteration and Refinement The iterative refinement of research hypotheses, as a distinct area of investigation, has received comparatively less attention in current research. Explanation-Refiner (Quan et al., 2024) employed theorem provers to verify and subsequently re- fine LLM-generated hypotheses. Chain-of-Idea (Li et al., 2024a) introduced an LLM-based agent framework designed to organize",
+          "distance": 0.20689094066619873
+        },
+        {
+          "chunk_id": "https://openalex.org/W4416036182_chunk_3",
+          "paper_id": "https://openalex.org/W4416036182",
+          "text": "alter the collaborative dynamics be- tween human researchers and artificial intelligence in the pursuit of knowledge. However, this rapid expansion of LLM applica- tions and the ongoing paradigm shift in scientific 1 6 2 3 4 5 LLM Applications: Literature Search and Retrieval, Literature Synthesis, Structuring and Organization. Featured Topics: Academic Graphs, Literature Review, Paper Summarization, Paper-to-Table Extraction. LLM Applications: Generation of Novel Ideas and Conceptual Insights, Hypothesis Formulation. Featured Topics: Idea Generation Methodologies and Evaluation, LLM- Assisted Brainstorming. LLM Applications: Experiment Planning and Protocol Design, Code and Action Generation. Featured Topics: Experimental Protocol Planning, Workflow Design, Scientific Code Generation. LLM Applications: Data-Driven Analysis, Tabular Reasoning, Statistical Reasoning, Model Discovery. Featured Topics: Tabular and Chart Reasoning, Function Discovery, Symbolic Regression. LLM Applications: Results Summarization, Hypothesis Validation and Assessment. Featured Topics: Claim Verification, Replication, Review Generation, Hypothesis Verification. LLM Applications: Iterative Hypothesis Refinement, Strategic Exploration and Discovery. Featured Topics: Agentic Tree-Search Refinement, Strategic Hypothesis Optimization. Hypothesis Development Observation and Problem Definition Experimentation and Data Collection Data Analysis and Interpretation Drawing Conclusions Iteration and Refinement Figure 1: Stages of the scientific method",
+          "distance": 0.21375823020935059
+        }
+      ]
+    }
+  ],
+  "excluded_papers": [],
+  "comparison": {
+    "paper_ids": [
+      "https://openalex.org/W4402683817",
+      "https://openalex.org/W4404782812",
+      "https://openalex.org/W4410862096",
+      "https://openalex.org/W4412954363",
+      "https://openalex.org/W4414948975",
+      "https://openalex.org/W4416036182"
+    ],
+    "paper_count": 6,
+    "dimension_summaries": [
+      {
+        "dimension": "problem",
+        "summary": "The papers address supporting and evaluating LLM capabilities in scientific hypothesis generation, domain-specific constitutive modeling, and establishing systematic frameworks or surveys across stages of scientific discovery.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_40",
+              "https://openalex.org/W4402683817_chunk_2"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_3"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_1"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_38"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_65"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_ids": [
+              "https://openalex.org/W4416036182_chunk_4"
+            ]
+          }
+        ]
+      },
+      {
+        "dimension": "methodology",
+        "summary": "Methodologies range from multi-module feedback frameworks and bilevel parameter optimization to surveys categorizing knowledge-injection strategies and LLM roles across scientific stages.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_40"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_9"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_9"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_40"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_76"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_ids": [
+              "https://openalex.org/W4416036182_chunk_4"
+            ]
+          }
+        ]
+      },
+      {
+        "dimension": "dataset",
+        "summary": "Evaluated datasets include manually annotated social science literature, bibliographic and chemical databases, synthetic multiaxial testing data, and specialized idea generation benchmarks.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_41"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_2",
+              "https://openalex.org/W4404782812_chunk_3"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_ids": [
+              "https://openalex.org/W4416036182_chunk_17",
+              "https://openalex.org/W4416036182_chunk_24"
+            ]
+          }
+        ]
+      },
+      {
+        "dimension": "results",
+        "summary": "LLMs demonstrate effectiveness in proposing novel and valid hypotheses, accelerating literature synthesis, and achieving high precision when augmented with domain-specific theory and feedback.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_8",
+              "https://openalex.org/W4402683817_chunk_2"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_9"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_61"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_51"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_ids": [
+              "https://openalex.org/W4416036182_chunk_18"
+            ]
+          }
+        ]
+      },
+      {
+        "dimension": "limitations",
+        "summary": "Primary reported limitations are model hallucinations, unfaithful reasoning/explanations, reliance on domain-specific theory to achieve accuracy, and constrained domain coverage or dataset sizes.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_41"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_42"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_43"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_65"
+            ]
+          }
+        ]
+      },
+      {
+        "dimension": "future_work",
+        "summary": "Future directions emphasize advancing physics-infused and causal AI, incorporating knowledge graphs to capture tail knowledge, extending coverage to social sciences, and building agent workflows whose explanations can be audited.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_8",
+              "https://openalex.org/W4402683817_chunk_43"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_40",
+              "https://openalex.org/W4404782812_chunk_42"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_61",
+              "https://openalex.org/W4412954363_chunk_43"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_76",
+              "https://openalex.org/W4414948975_chunk_77"
+            ]
+          }
+        ]
+      }
+    ],
+    "recurring_patterns": [
+      {
+        "title": "Domain Knowledge and Feedback Augmentation for Accurate Generation",
+        "description": "Unaugmented LLMs struggle with precision or accuracy in scientific tasks; integrating domain knowledge, feedback loops, or domain theory substantially improves hypothesis validity and task performance.",
+        "dimensions": [
+          "methodology",
+          "results"
+        ],
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_8",
+              "https://openalex.org/W4402683817_chunk_40"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_65",
+              "https://openalex.org/W4414948975_chunk_51"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "LLMs Serving as Copilots and Agents in Research Workflows",
+        "description": "LLMs are increasingly deployed as scientific copilots or autonomous agent systems across multiple stages of discovery, such as idea generation, literature synthesis, and experiment design.",
+        "dimensions": [
+          "methodology",
+          "results"
+        ],
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_8",
+              "https://openalex.org/W4402683817_chunk_43"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_61",
+              "https://openalex.org/W4412954363_chunk_7"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_ids": [
+              "https://openalex.org/W4416036182_chunk_17",
+              "https://openalex.org/W4416036182_chunk_3"
+            ]
+          }
+        ]
+      }
+    ],
+    "common_limitations": [
+      {
+        "title": "Hallucinations and Unfaithful Model Explanations",
+        "description": "LLMs applied to scientific discovery frequently generate plausible but factually incorrect content or give explanations that need not describe how an answer was actually produced.",
+        "dimensions": [
+          "limitations"
+        ],
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_43"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_65"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Inadequacy of General-Purpose LLMs Without Domain Specialization",
+        "description": "General LLMs alone without domain-specific data, background knowledge injection, or theoretical constraints exhibit limited accuracy and struggle on specialized scientific tasks.",
+        "dimensions": [
+          "limitations",
+          "methodology"
+        ],
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_65",
+              "https://openalex.org/W4414948975_chunk_69"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Restricted Domain Scope and Dataset Generalizability",
+        "description": "Studies and surveys face scope limitations, such as focusing strictly on social sciences or omitting social sciences in favor of natural sciences and mathematics.",
+        "dimensions": [
+          "limitations",
+          "dataset"
+        ],
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_41"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_42"
+            ]
+          }
+        ]
+      }
+    ],
+    "conflicting_findings": [],
+    "methodological_differences": [
+      {
+        "title": "Iterative Prompt Feedback vs. Bilevel Parameter Optimization",
+        "description": "P1 utilizes multi-module LLM prompting with discrete feedback mechanisms (novelty, reality, clarity) on open-domain web data, whereas P3 employs a bilevel optimization loop coupling outer-loop LLM hypothesis generation with inner-loop parameter optimization against domain equations.",
+        "dimensions": [
+          "methodology"
+        ],
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_8",
+              "https://openalex.org/W4402683817_chunk_40"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_9",
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Knowledge Injection in LLMs vs. Compact Task-Specific Models",
+        "description": "P4 and P5 examine augmenting LLMs via RAG, prompting, and fine-tuning, whereas P5 also contrasts this with compact task-specific models whose predictions are checked against curated reference data.",
+        "dimensions": [
+          "methodology"
+        ],
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_40"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_76",
+              "https://openalex.org/W4414948975_chunk_69"
+            ]
+          }
+        ]
+      }
+    ],
+    "underexplored_directions": [
+      {
+        "direction": "Knowledge Graph Integration for Tail Knowledge Preservation in Idea Generation",
+        "rationale": "Automated curation of domain-specific knowledge graphs can guide LLM hypothesis generation and prevent the wiping out of specialized tail knowledge during generation.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_40"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_ids": [
+              "https://openalex.org/W4416036182_chunk_17"
+            ]
+          }
+        ],
+        "status": "candidate"
+      },
+      {
+        "direction": "Comprehensive Evaluation of LLMs in Social Science Discovery",
+        "rationale": "While social science hypothesis generation is highlighted as a viable domain, existing general surveys omit social sciences due to space constraints, and framework applicability across disciplines remains unproven.",
+        "evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_41"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_42"
+            ]
+          }
+        ],
+        "status": "candidate"
+      }
+    ],
+    "caveats": [
+      "Findings are based on each paper's structured analysis and its retrieved evidence chunks, not the full text of every paper.",
+      "Underexplored directions are candidates derived only from the supplied papers. Their absence from this set does not show that a topic is unstudied; novelty must be checked separately.",
+      "Cited paper IDs and chunk IDs were verified to exist and to belong together, but each claim was not independently checked against its cited text.",
+      "Primary dataset details are unavailable for P4 and P5 within the provided evidence excerpts.",
+      "Limitations and explicit future work sections are not reported in the provided evidence excerpts for P6.",
+      "The corpus blends primary empirical research papers (P1, P3) with qualitative surveys and perspectives (P2, P4, P5, P6), preventing direct quantitative cross-paper benchmarks."
+    ],
+    "excluded_papers": [],
+    "provenance": {
+      "stage": "cross_paper_comparison",
+      "input_fingerprints": {
+        "paper_analyses": "b6fbf85ed4c4ca1fe14365cfb4dfc3d1c2e365bc755d6f2fc5be5599794f0038"
+      },
+      "fingerprint_schemes": {}
+    }
+  },
+  "gap_detection": {
+    "research_topic": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+    "paper_count": 6,
+    "paper_ids": [
+      "https://openalex.org/W4402683817",
+      "https://openalex.org/W4404782812",
+      "https://openalex.org/W4410862096",
+      "https://openalex.org/W4412954363",
+      "https://openalex.org/W4414948975",
+      "https://openalex.org/W4416036182"
+    ],
+    "gaps": [
+      {
+        "gap_id": "GAP-001",
+        "title": "Integrating Knowledge Graphs into LLM-Based Hypothesis Generation to Preserve Tail Knowledge",
+        "description": "While LLM-based agent frameworks (e.g., SciAgents, KG-CoI) incorporate academic knowledge graphs for research idea generation, general LLM pre-training risks losing domain-specific tail knowledge. Developing frameworks that dynamically query theme-focused knowledge graphs to preserve fine-grained tail knowledge during scientific hypothesis generation remains underexplored.",
+        "gap_category": "Integration Gap",
+        "reasoning": "P2 explicitly notes the future direction of using automated knowledge graphs to capture tail domain knowledge, while P6 focuses on idea generation across bibliographic and chemical databases where specialized knowledge is critical. Cross-referencing these findings indicates a missing integration between graph-structured domain knowledge bases and generative hypothesis loops.",
+        "supporting_paper_ids": [
+          "https://openalex.org/W4404782812",
+          "https://openalex.org/W4416036182"
+        ],
+        "supporting_chunk_ids": [
+          "https://openalex.org/W4404782812_chunk_40",
+          "https://openalex.org/W4416036182_chunk_17"
+        ],
+        "supporting_evidence": [
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_40"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_ids": [
+              "https://openalex.org/W4416036182_chunk_17"
+            ]
+          }
+        ],
+        "evidence_summary": "P2-E5 highlights theme-focused knowledge graph integration to preserve domain-specific tail knowledge, while P6-E2 surveys existing LLM research idea generation frameworks using academic knowledge graphs.",
+        "gap_origin": "inferred_cross_paper",
+        "confidence": "medium",
+        "confidence_reason": "Supported by explicit future directions in P2-E5 and domain evaluation settings in P6-E2, though tested empirical implementations combining both remain sparse in the provided corpus.",
+        "research_opportunity": "Future research could investigate hybrid frameworks that dynamically query and incorporate specialized domain knowledge graphs into LLM hypothesis generation pipelines."
+      },
+      {
+        "gap_id": "GAP-002",
+        "title": "Cross-Disciplinary Generalizability and Evaluation of Hypothesis Generation Frameworks Across Natural and Social Sciences",
+        "description": "Current research frameworks and surveys tend to either focus strictly on social sciences or omit social sciences entirely in favor of natural sciences and mathematics, leaving the cross-disciplinary generalizability of LLM hypothesis generation techniques unverified within this corpus.",
+        "gap_category": "Application / Domain Gap",
+        "reasoning": "P1 evaluates hypothesis generation using annotated social science literature, while P2 explicitly acknowledges omitting social sciences due to scope limits. Comparing these reveals a lack of standardized, unified evaluation frameworks tested across both natural and social science disciplines.",
+        "supporting_paper_ids": [
+          "https://openalex.org/W4402683817",
+          "https://openalex.org/W4404782812"
+        ],
+        "supporting_chunk_ids": [
+          "https://openalex.org/W4402683817_chunk_41",
+          "https://openalex.org/W4404782812_chunk_42"
+        ],
+        "supporting_evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_41"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_ids": [
+              "https://openalex.org/W4404782812_chunk_42"
+            ]
+          }
+        ],
+        "evidence_summary": "P1-E3 reports reliance on manually annotated social science literature with limited domain scope, whereas P2-E4 notes the omission of social sciences from general survey coverage.",
+        "gap_origin": "explicitly_stated",
+        "confidence": "medium",
+        "confidence_reason": "Directly supported by limitation and scope statements in P1-E3 and P2-E4 across distinct paper contexts.",
+        "research_opportunity": "Researchers might explore benchmark datasets and comparative evaluations to test whether feedback mechanisms established in social sciences translate effectively to natural science discovery tasks."
+      },
+      {
+        "gap_id": "GAP-003",
+        "title": "Faithful Reasoning and Hallucination Mitigation in Autonomous Scientific Discovery Agents",
+        "description": "LLMs deployed for scientific discovery frequently exhibit unfaithful reasoning and generate plausible but incorrect hypotheses, creating a gap between generation capabilities and trustworthy self-explanation.",
+        "gap_category": "Methodological Gap",
+        "reasoning": "P4 identifies hallucinations and unfaithful explanations as key limitations in scientific agent workflows, while P5 emphasizes that general LLMs without rigorous knowledge injection struggle with precision and factual accuracy. Together, they highlight a methodological gap in ensuring faithful reasoning in automated research agents.",
+        "supporting_paper_ids": [
+          "https://openalex.org/W4412954363",
+          "https://openalex.org/W4414948975"
+        ],
+        "supporting_chunk_ids": [
+          "https://openalex.org/W4412954363_chunk_43",
+          "https://openalex.org/W4414948975_chunk_65"
+        ],
+        "supporting_evidence": [
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_ids": [
+              "https://openalex.org/W4412954363_chunk_43"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_ids": [
+              "https://openalex.org/W4414948975_chunk_65"
+            ]
+          }
+        ],
+        "evidence_summary": "P4-E4 identifies model hallucinations and unfaithful reasoning as key limitations, and P5-E1 reports that unaugmented LLMs lack precision and exhibit accuracy constraints on specialized tasks.",
+        "gap_origin": "explicitly_stated",
+        "confidence": "medium",
+        "confidence_reason": "Supported by consistent limitation reports across P4-E4 and P5-E1 regarding LLM hallucinations and unfaithful self-explanations. (Capped at medium: fewer than 3 supporting papers.)",
+        "research_opportunity": "Investigating self-verification mechanisms and explainable agent architectures could potentially improve the faithfulness and accuracy of LLM-generated scientific explanations."
+      },
+      {
+        "gap_id": "GAP-004",
+        "title": "Synthesizing Multi-Module Feedback Prompting with Quantitative Physics and Theoretical Constraints",
+        "description": "Existing frameworks apply either qualitative discrete prompting feedback (e.g., novelty/clarity) or quantitative parameter optimization against mathematical domain equations, but lack unified methods that combine multi-criteria qualitative feedback with strict quantitative domain optimization.",
+        "gap_category": "Integration Gap",
+        "reasoning": "Comparing P1 (which utilizes multi-module qualitative feedback loops for novelty, reality, and clarity) with P3 (which enforces physical constitutive equations via bilevel parameter optimization) highlights an underexplored opportunity to unify discrete qualitative multi-criteria feedback with rigorous numeric domain optimization.",
+        "supporting_paper_ids": [
+          "https://openalex.org/W4402683817",
+          "https://openalex.org/W4410862096"
+        ],
+        "supporting_chunk_ids": [
+          "https://openalex.org/W4402683817_chunk_40",
+          "https://openalex.org/W4402683817_chunk_8",
+          "https://openalex.org/W4410862096_chunk_9",
+          "https://openalex.org/W4410862096_chunk_53"
+        ],
+        "supporting_evidence": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_ids": [
+              "https://openalex.org/W4402683817_chunk_40",
+              "https://openalex.org/W4402683817_chunk_8"
+            ]
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_ids": [
+              "https://openalex.org/W4410862096_chunk_9",
+              "https://openalex.org/W4410862096_chunk_53"
+            ]
+          }
+        ],
+        "evidence_summary": "P1-E1 and P1-E4 demonstrate multi-module discrete prompting feedback loops, while P3-E2, P3-E3, P5-E1, and P5-E3 emphasize theoretical constraints and bilevel parameter optimization.",
+        "gap_origin": "inferred_cross_paper",
+        "confidence": "high",
+        "confidence_reason": "Strongly supported by contrasting methodological approaches across P1, P3, and P5, pointing to an unexamined integration of qualitative feedback and mathematical constraint loops.",
+        "research_opportunity": "Future work could explore hybrid optimization pipelines that combine qualitative multi-agent feedback with quantitative inner-loop parameter optimization against physical domain constraints."
+      }
+    ],
+    "gap_category_counts": {
+      "Integration Gap": 2,
+      "Application / Domain Gap": 1,
+      "Methodological Gap": 1
+    },
+    "excluded_candidates": [],
+    "caveats": [
+      "Gaps are candidates derived only from 6 analyzed papers. Absence of a topic in this collection does not show that it is unstudied; novelty must be checked separately.",
+      "Gaps are based on the cross-paper comparison, which itself rests on retrieved evidence chunks rather than the full text of every paper.",
+      "Evidence references were checked for ID validity only: each cited paper ID and chunk ID exists in the comparison and the chunk belongs to the cited paper. Chunk text was not retrieved and no gap claim was semantically verified against its cited evidence; that is the job of the later Evidence Validation Agent. gap_origin is the model's assessment and is not verified.",
+      "The identified gaps are derived solely from the provided 6-paper collection and do not reflect broader literature beyond this corpus.",
+      "Discipline scope limitations in individual papers restrict the generalizability of findings across all scientific domains.",
+      "Gap text was updated from critic suggestions; all evidence references remain tied to comparison-owned chunks and are revalidated."
+    ],
+    "provenance": {
+      "stage": "research_gap_detection",
+      "input_fingerprints": {
+        "comparison": "508f644bbb08a1bbad0b60916f11b6fbd6bcf200943ca2557a72ba71b035eb5f"
+      },
+      "fingerprint_schemes": {}
+    }
+  },
+  "evidence_validation": {
+    "research_topic": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+    "paper_ids": [
+      "https://openalex.org/W4402683817",
+      "https://openalex.org/W4404782812",
+      "https://openalex.org/W4410862096",
+      "https://openalex.org/W4412954363",
+      "https://openalex.org/W4414948975",
+      "https://openalex.org/W4416036182"
+    ],
+    "gap_validations": [
+      {
+        "gap_id": "GAP-001",
+        "status": "FULLY_SUPPORTED",
+        "explanation": "The joint assessment supports the complete gap; all referenced evidence was assessed and no unresolved contradiction remains.",
+        "evidence_validations": [
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_id": "https://openalex.org/W4404782812_chunk_40",
+            "status": "SUPPORTED",
+            "findings": "{\"status\": \"SUPPORTED\", \"attributed_contribution\": \"P2-E5 highlights theme-focused knowledge graph integration to preserve domain-specific tail knowledge.\", \"claim_evidence_alignment\": \"The chunk explicitly states that domain-specific tail knowledge may be wiped out during general pre-training and proposes automatically curating in-depth, theme-focused knowledge graphs to guide the generation process.\", \"evidence_summary_accuracy\": \"The summary accurately reflects the chunk's discussion on using theme-focused knowledge graphs to address the loss of domain-specific tail knowledge in scientific LLMs.\", \"limitations\": \"None relative to the attributed claim for P2.\", \"explanation\": \"The chunk directly supports the attributed claim by emphasizing that general LLM pre-training risks losing fine-grained, domain-specific tail knowledge and highlighting theme-focused knowledge graphs as a promising direction to address this.\", \"supported_contribution\": \"General pre-training of scientific LLMs risks wiping out domain-specific tail knowledge, and automatically curating in-depth, theme-focused knowledge graphs to guide generation is highlighted as a promising solution.\", \"supported_contribution_quote\": \"When LLMs are pre-trained on more general corpora, frequently appeared sig- nals may dominate the model parameter space, and domain-specific tail knowledge may be wiped out. We believe that automatically curating in- depth, theme-focused knowledge graphs (Hope et al., 2021) to guide the generation process will be a promising direction to tackle this issue.\", \"subject_quotes\": {\"supports_physics_informed_ml\": \"\", \"supports_causal_reasoning\": \"\", \"supports_domain_knowledge_injection\": \"\", \"supports_social_science_survey_scope\": \"\", \"supports_cross_disciplinary_transferability\": \"\", \"supports_peer_review_quality_assessment\": \"\", \"supports_novelty_assessment\": \"\", \"supports_critique_homogenization\": \"\", \"supports_deficiency_identification\": \"\", \"supports_scientific_claim_critique\": \"\"}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "General pre-training of scientific LLMs risks wiping out domain-specific tail knowledge, and automatically curating in-depth, theme-focused knowledge graphs to guide generation is highlighted as a promising solution.",
+            "supported_contribution_quote": "When LLMs are pre-trained on more general corpora, frequently appeared sig- nals may dominate the model parameter space, and domain-specific tail knowledge may be wiped out. We believe that automatically curating in- depth, theme-focused knowledge graphs (Hope et al., 2021) to guide the generation process will be a promising direction to tackle this issue.",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk explicitly states that domain-specific tail knowledge may be wiped out during general pre-training and proposes automatically curating in-depth, theme-focused knowledge graphs to guide the generation process.",
+            "evidence_summary_accuracy": "The summary accurately reflects the chunk's discussion on using theme-focused knowledge graphs to address the loss of domain-specific tail knowledge in scientific LLMs.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          },
+          {
+            "paper_id": "https://openalex.org/W4416036182",
+            "chunk_id": "https://openalex.org/W4416036182_chunk_17",
+            "status": "SUPPORTED",
+            "findings": "{\"status\": \"SUPPORTED\", \"attributed_contribution\": \"P6 surveys existing LLM research idea generation frameworks using academic knowledge graphs.\", \"claim_evidence_alignment\": \"The chunk explicitly reviews LLM-based agent frameworks (such as Nova, SciAgents, and KG-CoI) that enhance research idea generation through reasoning over academic knowledge graphs.\", \"evidence_summary_accuracy\": \"The summary accurately reflects the text in the chunk, which describes existing LLM-based agent frameworks utilizing academic knowledge graphs for idea generation.\", \"limitations\": \"None relative to the attributed contribution for this chunk.\", \"explanation\": \"The text directly references LLM-based agent frameworks including SciAgents and KG-CoI that have been proposed to enhance research idea generation through reasoning over academic knowledge graphs.\", \"supported_contribution\": \"P6 surveys existing LLM research idea generation frameworks that utilize reasoning over academic knowledge graphs.\", \"supported_contribution_quote\": \"Concurrently, LLM-based agent frame- works, including Nova (Hu et al., 2024a), SciA- gents (Ghafarollahi and Buehler, 2024b), and KG- CoI (Xiong et al., 2024), have been proposed to en- hance idea generation through effective reasoning over academic knowledge graphs, iterative plan- ning, and searching.\", \"subject_quotes\": {}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "P6 surveys existing LLM research idea generation frameworks that utilize reasoning over academic knowledge graphs.",
+            "supported_contribution_quote": "Concurrently, LLM-based agent frame- works, including Nova (Hu et al., 2024a), SciA- gents (Ghafarollahi and Buehler, 2024b), and KG- CoI (Xiong et al., 2024), have been proposed to en- hance idea generation through effective reasoning over academic knowledge graphs, iterative plan- ning, and searching.",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk explicitly reviews LLM-based agent frameworks (such as Nova, SciAgents, and KG-CoI) that enhance research idea generation through reasoning over academic knowledge graphs.",
+            "evidence_summary_accuracy": "The summary accurately reflects the text in the chunk, which describes existing LLM-based agent frameworks utilizing academic knowledge graphs for idea generation.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          }
+        ],
+        "cross_paper_inference": "The cross-paper inference is valid. Connecting W4404782812's proposal of theme-focused knowledge graphs for preserving tail knowledge with W4416036182's overview of knowledge-graph-assisted LLM idea generation agents reveals an unaddressed integration point.",
+        "contradiction_warnings": [],
+        "joint_assessment": {
+          "status": "FULLY_SUPPORTED",
+          "complete_gap_assessment": "The candidate research gap is supported through the synthesis of both source papers. Paper W4404782812 notes that general pre-training erases domain-specific tail knowledge and suggests theme-focused knowledge graphs to guide generation. Paper W4416036182 highlights existing LLM agent frameworks (such as SciAgents and KG-CoI) that use academic knowledge graphs for idea generation. Integrating theme-focused knowledge graphs into hypothesis generation frameworks to preserve fine-grained tail knowledge represents a logical and supported cross-paper research gap.",
+          "cross_paper_inference": "The cross-paper inference is valid. Connecting W4404782812's proposal of theme-focused knowledge graphs for preserving tail knowledge with W4416036182's overview of knowledge-graph-assisted LLM idea generation agents reveals an unaddressed integration point.",
+          "evidence_summary_accuracy": "The evidence summary is accurate. Chunk 40 of W4404782812 emphasizes theme-focused knowledge graphs to preserve domain-specific tail knowledge, while chunk 17 of W4416036182 outlines current LLM research idea generation frameworks using academic knowledge graphs.",
+          "research_opportunity": "The research opportunity accurately reflects the gap: constructing hybrid frameworks that dynamically query specialized, theme-focused domain knowledge graphs during LLM-based scientific hypothesis generation to retain tail knowledge.",
+          "gap_origin": "The declared gap origin of inferred_cross_paper is accurate, as it brings together the tail knowledge mitigation strategy from W4404782812 and the LLM idea generation paradigm described in W4416036182.",
+          "overgeneralization": "There is minor over-extrapolation in the reasoning text regarding P6 focusing on chemical databases (chemistry is discussed in W4404782812, while W4416036182 cites astronomy and AI research), but this does not invalidate the core cross-paper gap.",
+          "limitations": "The retrieved chunks provide conceptual motivations and framework surveys, but lack concrete implementations or empirical evaluations comparing standard academic KGs against theme-focused KGs in hypothesis generation pipelines.",
+          "counterevidence": "No counterevidence was identified in the provided chunks.",
+          "source_evidence": [
+            {
+              "paper_id": "https://openalex.org/W4404782812",
+              "chunk_ids": [
+                "https://openalex.org/W4404782812_chunk_40"
+              ]
+            },
+            {
+              "paper_id": "https://openalex.org/W4416036182",
+              "chunk_ids": [
+                "https://openalex.org/W4416036182_chunk_17"
+              ]
+            }
+          ],
+          "contradictions": []
+        },
+        "contradictions": [],
+        "joint_assessment_error": null
+      },
+      {
+        "gap_id": "GAP-002",
+        "status": "FULLY_SUPPORTED",
+        "explanation": "The joint assessment supports the complete gap; all referenced evidence was assessed and no unresolved contradiction remains.",
+        "evidence_validations": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_id": "https://openalex.org/W4402683817_chunk_41",
+            "status": "SUPPORTED",
+            "findings": "{\"status\": \"SUPPORTED\", \"attributed_contribution\": \"P1-E3 reports reliance on manually annotated social science literature with limited domain scope\", \"claim_evidence_alignment\": \"The chunk directly supports the attributed contribution by stating that the dataset consists of 50 papers manually collected and annotated by PhD students from top social science journals, while explicitly noting the limitation that it is unclear whether the framework can apply to other disciplines.\", \"evidence_summary_accuracy\": \"The evidence summary accurately reflects the text in the chunk regarding reliance on expert manually annotated social science papers and limited scope regarding generalizability to other disciplines.\", \"limitations\": \"None identified for this chunk.\", \"explanation\": \"The text explicitly notes that the proposed dataset consists of 50 recent papers manually collected and annotated by PhD students, with all papers published in top social science journals. It further notes as a limitation that it is not clear whether the design of the framework can apply to other disciplines, directly supporting the statement in P1-E3.\", \"supported_contribution\": \"P1 relies on manually collected and annotated social science literature (50 papers from top social science journals) and acknowledges limited cross-disciplinary domain scope.\", \"supported_contribution_quote\": \"the proposed dataset consists of only 50 recent papers. However, they are all manually collected by experts (PhD stu- dents), and are annotated with lots of details\", \"subject_quotes\": {}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "P1 relies on manually collected and annotated social science literature (50 papers from top social science journals) and acknowledges limited cross-disciplinary domain scope.",
+            "supported_contribution_quote": "the proposed dataset consists of only 50 recent papers. However, they are all manually collected by experts (PhD stu- dents), and are annotated with lots of details",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk directly supports the attributed contribution by stating that the dataset consists of 50 papers manually collected and annotated by PhD students from top social science journals, while explicitly noting the limitation that it is unclear whether the framework can apply to other disciplines.",
+            "evidence_summary_accuracy": "The evidence summary accurately reflects the text in the chunk regarding reliance on expert manually annotated social science papers and limited scope regarding generalizability to other disciplines.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          },
+          {
+            "paper_id": "https://openalex.org/W4404782812",
+            "chunk_id": "https://openalex.org/W4404782812_chunk_42",
+            "status": "SUPPORTED",
+            "findings": "{\"status\": \"SUPPORTED\", \"attributed_contribution\": \"P2 notes the omission of social sciences from general survey coverage.\", \"claim_evidence_alignment\": \"The chunk explicitly states that the survey primarily focuses on mathematics and natural sciences and omits social sciences due to space limitations.\", \"evidence_summary_accuracy\": \"The chunk directly confirms the paper's self-stated scope limitation regarding social sciences.\", \"limitations\": \"None\", \"explanation\": \"The text explicitly states under 'Limitations' that the survey primarily covers mathematics and natural sciences and leaves social sciences as future work due to space limitations.\", \"supported_contribution\": \"The survey explicitly acknowledges the omission of social sciences from its coverage, focusing instead on mathematics and natural sciences due to space limitations.\", \"supported_contribution_quote\": \"This survey primarily covers LLMs in mathematics and natural sciences. We are aware that LLMs can also significantly impact social sciences by achiev- ing remarkable performance in representative tasks (Ziems et al., 2024) and serving as agents for so- cial simulation experiments (Horton, 2023), but we leave the survey of these efforts as future work due to space limitations.\", \"subject_quotes\": {\"supports_social_science_survey_scope\": \"This survey primarily covers LLMs in mathematics and natural sciences. We are aware that LLMs can also significantly impact social sciences by achiev- ing remarkable performance in representative tasks (Ziems et al., 2024) and serving as agents for so- cial simulation experiments (Horton, 2023), but we leave the survey of these efforts as future work due to space limitations.\"}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": true, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "The survey explicitly acknowledges the omission of social sciences from its coverage, focusing instead on mathematics and natural sciences due to space limitations.",
+            "supported_contribution_quote": "This survey primarily covers LLMs in mathematics and natural sciences. We are aware that LLMs can also significantly impact social sciences by achiev- ing remarkable performance in representative tasks (Ziems et al., 2024) and serving as agents for so- cial simulation experiments (Horton, 2023), but we leave the survey of these efforts as future work due to space limitations.",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": true,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk explicitly states that the survey primarily focuses on mathematics and natural sciences and omits social sciences due to space limitations.",
+            "evidence_summary_accuracy": "The chunk directly confirms the paper's self-stated scope limitation regarding social sciences.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          }
+        ],
+        "cross_paper_inference": "The cross-paper inference is sound. Synthesizing Paper 1's social-science-specific evaluation and acknowledged limitation regarding generalizability with Paper 2's explicit omission of social sciences in favor of natural sciences and mathematics reveals a distinct gap in cross-disciplinary synthesis and standardized evaluation across both domain families.",
+        "contradiction_warnings": [],
+        "joint_assessment": {
+          "status": "FULLY_SUPPORTED",
+          "complete_gap_assessment": "The candidate gap is fully supported by the provided chunks. Paper 1 explicitly notes the limitation that it is unclear whether its framework applies to disciplines beyond social science, while Paper 2 explicitly limits its survey scope to mathematics and natural sciences, omitting social sciences due to space limitations. Together, they demonstrate that hypothesis generation frameworks and surveys in this corpus remain domain-segregated without cross-disciplinary evaluation across natural and social sciences.",
+          "cross_paper_inference": "The cross-paper inference is sound. Synthesizing Paper 1's social-science-specific evaluation and acknowledged limitation regarding generalizability with Paper 2's explicit omission of social sciences in favor of natural sciences and mathematics reveals a distinct gap in cross-disciplinary synthesis and standardized evaluation across both domain families.",
+          "evidence_summary_accuracy": "The evidence summary accurately represents the retrieved text. Paper 1 describes relying on expert-annotated social science literature while highlighting applicability to other disciplines as an unverified limitation, and Paper 2 acknowledges leaving social sciences for future work while covering natural sciences and mathematics.",
+          "research_opportunity": "The proposed research opportunity is appropriate and actionable. Developing cross-disciplinary benchmarks and testing hypothesis generation and feedback mechanisms across both social and natural sciences directly addresses the gap identified.",
+          "gap_origin": "The gap origin classification as explicitly stated is accurate, as both source papers directly cite their single-domain scope or omission of alternative scientific domains in their explicit limitations sections.",
+          "overgeneralization": "There is no overgeneralization. The scope of the claimed gap is correctly restricted to the evaluation boundaries and domain limits reported across the source chunks.",
+          "limitations": "The assessment is limited to the provided chunks, which represent one hypothesis generation framework and one survey paper.",
+          "counterevidence": "No counterevidence is present in the provided chunks; neither source presents a unified framework or survey covering both natural and social sciences simultaneously.",
+          "source_evidence": [
+            {
+              "paper_id": "https://openalex.org/W4402683817",
+              "chunk_ids": [
+                "https://openalex.org/W4402683817_chunk_41"
+              ]
+            },
+            {
+              "paper_id": "https://openalex.org/W4404782812",
+              "chunk_ids": [
+                "https://openalex.org/W4404782812_chunk_42"
+              ]
+            }
+          ],
+          "contradictions": []
+        },
+        "contradictions": [],
+        "joint_assessment_error": null
+      },
+      {
+        "gap_id": "GAP-003",
+        "status": "FULLY_SUPPORTED",
+        "explanation": "The joint assessment supports the complete gap; all referenced evidence was assessed and no unresolved contradiction remains.",
+        "evidence_validations": [
+          {
+            "paper_id": "https://openalex.org/W4412954363",
+            "chunk_id": "https://openalex.org/W4412954363_chunk_43",
+            "status": "PARTIALLY_SUPPORTED",
+            "findings": "{\"status\": \"PARTIALLY_SUPPORTED\", \"attributed_contribution\": \"P4 identifies model hallucinations and unfaithful reasoning as key limitations of LLMs.\", \"claim_evidence_alignment\": \"The chunk supports that LLMs face key limitations including hallucinations and limited reasoning capabilities in scientific applications, though it frames reasoning issues as limited reasoning capabilities and lack of transparency rather than using the exact term unfaithful reasoning.\", \"evidence_summary_accuracy\": \"The chunk accurately captures that LLMs have limitations such as hallucinations, limited reasoning capabilities, and lack of transparency, which are critical because science requires high standards of truthfulness and complex reasoning.\", \"limitations\": \"The text does not explicitly use the phrase 'unfaithful reasoning', referring instead to 'limited reasoning capabilities' and 'lack of transparency'.\", \"explanation\": \"The chunk confirms that researchers recognize LLM limitations including hallucinations and limited reasoning capabilities when applied to scientific domains.\", \"supported_contribution\": \"LLMs face key limitations in scientific domains, including hallucinations, limited reasoning capabilities, and a lack of transparency.\", \"supported_contribution_quote\": \"investigators have recognised their limitations,suchashallucinations,limitedreasoningcapabilities,andlackof transparency.\", \"subject_quotes\": {\"supports_physics_informed_ml\": \"physics-infused ML\", \"supports_causal_reasoning\": \"causal reasoning\"}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": true, \"supports_causal_reasoning\": true, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "LLMs face key limitations in scientific domains, including hallucinations, limited reasoning capabilities, and a lack of transparency.",
+            "supported_contribution_quote": "investigators have recognised their limitations,suchashallucinations,limitedreasoningcapabilities,andlackof transparency.",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": true,
+            "supports_causal_reasoning": true,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk supports that LLMs face key limitations including hallucinations and limited reasoning capabilities in scientific applications, though it frames reasoning issues as limited reasoning capabilities and lack of transparency rather than using the exact term unfaithful reasoning.",
+            "evidence_summary_accuracy": "The chunk accurately captures that LLMs have limitations such as hallucinations, limited reasoning capabilities, and lack of transparency, which are critical because science requires high standards of truthfulness and complex reasoning.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          },
+          {
+            "paper_id": "https://openalex.org/W4414948975",
+            "chunk_id": "https://openalex.org/W4414948975_chunk_65",
+            "status": "PARTIALLY_SUPPORTED",
+            "findings": "{\"status\": \"PARTIALLY_SUPPORTED\", \"attributed_contribution\": \"P5-E1 reports that unaugmented LLMs lack precision and exhibit accuracy constraints on specialized tasks.\", \"claim_evidence_alignment\": \"The synthetic chunk describes fluent but false outputs and explanations that need not reflect the process that produced an answer, and presents grounding in curated reference material as a mitigation; it does not frame this as precision or accuracy constraints on specialized tasks.\", \"evidence_summary_accuracy\": \"The synthetic chunk discusses credible-sounding but false outputs and unreliable explanations alongside grounding in curated domain material, rather than measuring precision or accuracy on specialized tasks.\", \"limitations\": \"The chunk does not use the specific terms 'lack precision' or 'accuracy constraints on specialized tasks'.\", \"explanation\": \"The synthetic chunk partially supports the attributed contribution: it states that a language model can give credible-sounding but false answers and explanations that do not describe its actual process, and that grounding in vetted domain material reduces these errors. It does not report precision metrics or accuracy constraints on specialized tasks.\", \"supported_contribution\": \"Language models can give credible-sounding but false answers and explanations that do not describe how the answer was produced, and grounding them in vetted domain material reduces these errors.\", \"supported_contribution_quote\": \"A recurring difficulty is that a language model may return a fluent answer that reads as credible yet states something false.\", \"subject_quotes\": {\"supports_domain_knowledge_injection\": \"Supplying the model with vetted domain material, whether through instructions, retrieved passages, or additional training, gives reviewers a concrete way to check its claims and makes such errors less frequent.\"}, \"mentions_llm\": true, \"mentions_faithfulness\": true, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": true, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "Language models can give credible-sounding but false answers and explanations that do not describe how the answer was produced, and grounding them in vetted domain material reduces these errors.",
+            "supported_contribution_quote": "A recurring difficulty is that a language model may return a fluent answer that reads as credible yet states something false.",
+            "mentions_llm": true,
+            "mentions_faithfulness": true,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": true,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The synthetic chunk describes fluent but false outputs and explanations that need not reflect the process that produced an answer, and presents grounding in curated reference material as a mitigation; it does not frame this as precision or accuracy constraints on specialized tasks.",
+            "evidence_summary_accuracy": "The synthetic chunk discusses credible-sounding but false outputs and unreliable explanations alongside grounding in curated domain material, rather than measuring precision or accuracy on specialized tasks.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          }
+        ],
+        "cross_paper_inference": "Combining findings across both papers demonstrates that unaugmented LLMs suffer from both factual inaccuracy (hallucinations) and unfaithful self-explanation mechanisms, which limits their trustworthiness when deployed for complex scientific reasoning and automated research tasks.",
+        "contradiction_warnings": [],
+        "joint_assessment": {
+          "status": "FULLY_SUPPORTED",
+          "complete_gap_assessment": "The candidate research gap addresses the need for faithful reasoning and hallucination mitigation in LLMs applied to scientific discovery. The retrieved chunks support this gap: W4412954363 highlights LLM limitations including hallucinations, limited reasoning capabilities, and lack of transparency in scientific contexts, while W4414948975 (synthetic stand-in text) describes fluent answers that read as credible yet state something false, and explanations that need not describe the steps that actually produced an answer.",
+          "cross_paper_inference": "Combining findings across both papers demonstrates that unaugmented LLMs suffer from both factual inaccuracy (hallucinations) and unfaithful self-explanation mechanisms, which limits their trustworthiness when deployed for complex scientific reasoning and automated research tasks.",
+          "evidence_summary_accuracy": "The evidence summary accurately reflects the core themes present in the source text, though the specific mention of self-explanation unfaithfulness appears in chunk W4414948975 rather than chunk W4412954363.",
+          "research_opportunity": "Developing and evaluating domain knowledge injection, retrieval-augmented generation, self-verification protocols, and interpretability analysis tailored for scientific discovery agents presents a viable research direction to ensure model outputs are both factually accurate and faithfully explained.",
+          "gap_origin": "explicitly_stated",
+          "overgeneralization": "None observed. The gap appropriately bounds the problem to LLMs and autonomous agents operating within scientific discovery contexts.",
+          "limitations": "The chunks note that knowledge injection and retrieval-augmented generation help alleviate these issues, though fully ensuring complete faithfulness and transparency remains an ongoing technical challenge.",
+          "counterevidence": "Neither chunk denies the existence of hallucinations or unfaithful reasoning; both acknowledge these as significant operational limitations for LLMs in scientific domains.",
+          "source_evidence": [
+            {
+              "paper_id": "https://openalex.org/W4412954363",
+              "chunk_ids": [
+                "https://openalex.org/W4412954363_chunk_43"
+              ]
+            },
+            {
+              "paper_id": "https://openalex.org/W4414948975",
+              "chunk_ids": [
+                "https://openalex.org/W4414948975_chunk_65"
+              ]
+            }
+          ],
+          "contradictions": []
+        },
+        "contradictions": [],
+        "joint_assessment_error": null
+      },
+      {
+        "gap_id": "GAP-004",
+        "status": "FULLY_SUPPORTED",
+        "explanation": "The joint assessment supports the complete gap; all referenced evidence was assessed and no unresolved contradiction remains.",
+        "evidence_validations": [
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_id": "https://openalex.org/W4402683817_chunk_40",
+            "status": "SUPPORTED",
+            "findings": "{\"status\": \"SUPPORTED\", \"attributed_contribution\": \"P1 demonstrates a multi-module framework with feedback mechanisms.\", \"claim_evidence_alignment\": \"The chunk directly supports the paper's contribution by stating that the authors developed MOOSE, a multi-module framework featuring a base framework and three novel feedback mechanisms.\", \"evidence_summary_accuracy\": \"The evidence fully matches the claim that P1 introduces a multi-module framework utilizing feedback mechanisms.\", \"limitations\": \"The text cut off at the end of the Limitations section.\", \"explanation\": \"The chunk confirms the development of MOOSE, a multi-module framework with three feedback mechanisms for automated hypothesis discovery, supporting the paper's attributed contribution.\", \"supported_contribution\": \"MOOSE is a multi-module framework that incorporates a base framework and three feedback mechanisms for hypothesis discovery.\", \"supported_contribution_quote\": \"We also developed a multi-module frame- work MOOSE for the TOMATO task, which con- tains a base framework and three novel feedback mechanisms.\", \"subject_quotes\": {}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "MOOSE is a multi-module framework that incorporates a base framework and three feedback mechanisms for hypothesis discovery.",
+            "supported_contribution_quote": "We also developed a multi-module frame- work MOOSE for the TOMATO task, which con- tains a base framework and three novel feedback mechanisms.",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk directly supports the paper's contribution by stating that the authors developed MOOSE, a multi-module framework featuring a base framework and three novel feedback mechanisms.",
+            "evidence_summary_accuracy": "The evidence fully matches the claim that P1 introduces a multi-module framework utilizing feedback mechanisms.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          },
+          {
+            "paper_id": "https://openalex.org/W4402683817",
+            "chunk_id": "https://openalex.org/W4402683817_chunk_8",
+            "status": "SUPPORTED",
+            "findings": "{\"status\": \"SUPPORTED\", \"attributed_contribution\": \"P1-E1 and P1-E4 demonstrate multi-module discrete prompting feedback loops\", \"claim_evidence_alignment\": \"The chunk explicitly references three feedback mechanisms providing iterative feedback for novelty, reality, and clarity, which aligns with multi-module feedback loops.\", \"evidence_summary_accuracy\": \"The summary accurately attributes iterative multi-feedback mechanisms (novelty, reality, clarity) to this paper's framework.\", \"limitations\": \"The text describes these as three feedback mechanisms and iterative feedback for novelty, reality, and clarity, but does not explicitly use the exact phrase 'discrete prompting'.\", \"explanation\": \"The paper chunk confirms that the MOOSE framework utilizes three distinct feedback mechanisms (iterative feedback for novelty, reality, and clarity) to progressively improve baseline performance.\", \"supported_contribution\": \"The paper utilizes three feedback mechanisms providing iterative feedback for novelty, reality, and clarity to progressively improve research hypothesis generation.\", \"supported_contribution_quote\": \"each of the three feedback mechanisms can progressively improve the base framework.\", \"subject_quotes\": {}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "The paper utilizes three feedback mechanisms providing iterative feedback for novelty, reality, and clarity to progressively improve research hypothesis generation.",
+            "supported_contribution_quote": "each of the three feedback mechanisms can progressively improve the base framework.",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk explicitly references three feedback mechanisms providing iterative feedback for novelty, reality, and clarity, which aligns with multi-module feedback loops.",
+            "evidence_summary_accuracy": "The summary accurately attributes iterative multi-feedback mechanisms (novelty, reality, clarity) to this paper's framework.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_id": "https://openalex.org/W4410862096_chunk_9",
+            "status": "PARTIALLY_SUPPORTED",
+            "findings": "{\"status\": \"PARTIALLY_SUPPORTED\", \"attributed_contribution\": \"P3 emphasizes theoretical constraints and bilevel parameter optimization in LLM-driven scientific modeling.\", \"claim_evidence_alignment\": \"The chunk explicitly discusses bilevel optimization combining LLM candidate/hypothesis generation in the outer loop with parameter optimization in the inner loop, but does not explicitly mention theoretical constraints in this excerpt.\", \"evidence_summary_accuracy\": \"Accurate to the chunk content regarding bilevel optimization and parameter optimization, though theoretical constraints are omitted in this specific chunk.\", \"limitations\": \"The text describes bilevel parameter optimization in related work and context, but does not explicitly mention theoretical constraints in this chunk.\", \"explanation\": \"The chunk directly supports the bilevel parameter optimization aspect of the attributed contribution, describing how LLMs generate candidates in an outer loop while an inner loop refines them through parameter optimization. However, theoretical constraints are not explicitly detailed in this chunk.\", \"supported_contribution\": \"Bilevel parameter optimization combining LLM candidate/hypothesis generation with inner-loop parameter refinement.\", \"supported_contribution_quote\": \"Both methods utilize a bilevel optimization: the outer loop generates sequence can- didates or uncalibrated hypotheses using LLMs, while the inner loop iteratively reﬁnes these candidates through param- eter optimization.\", \"subject_quotes\": {}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": false, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": false, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "Bilevel parameter optimization combining LLM candidate/hypothesis generation with inner-loop parameter refinement.",
+            "supported_contribution_quote": "Both methods utilize a bilevel optimization: the outer loop generates sequence can- didates or uncalibrated hypotheses using LLMs, while the inner loop iteratively reﬁnes these candidates through param- eter optimization.",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk explicitly discusses bilevel optimization combining LLM candidate/hypothesis generation in the outer loop with parameter optimization in the inner loop, but does not explicitly mention theoretical constraints in this excerpt.",
+            "evidence_summary_accuracy": "Accurate to the chunk content regarding bilevel optimization and parameter optimization, though theoretical constraints are omitted in this specific chunk.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          },
+          {
+            "paper_id": "https://openalex.org/W4410862096",
+            "chunk_id": "https://openalex.org/W4410862096_chunk_53",
+            "status": "PARTIALLY_SUPPORTED",
+            "findings": "{\"status\": \"PARTIALLY_SUPPORTED\", \"attributed_contribution\": \"P3 emphasizes theoretical constraints and parameter optimization by augmenting prompts with domain knowledge and materials theory.\", \"claim_evidence_alignment\": \"The chunk supports augmenting prompts with domain-specific data and materials theory to create specialized models (CSGA) and allowing users to inject modifications, but does not explicitly detail bilevel parameter optimization.\", \"evidence_summary_accuracy\": \"Accurately reflects the chunk's discussion of benchmark comparisons between SGA/CSGA and CANN, domain knowledge injection, and materials theory.\", \"limitations\": \"The chunk does not explicitly mention bilevel parameter optimization.\", \"explanation\": \"The text demonstrates augmenting prompts with materials theory and domain-specific data to improve model accuracy, supporting the theoretical constraint and domain injection aspect, though bilevel parameter optimization is omitted in this specific chunk.\", \"supported_contribution\": \"Augmenting SGA prompts with domain-specific data and materials theory creates specialized models (CSGA) that allow injecting model modifications and qualitative insights.\", \"supported_contribution_quote\": \"By augmenting SGA prompts with domain-speciﬁc data and materials theory to create the specialized CSGA, we substantially closed the accuracy gap:\", \"subject_quotes\": {\"supports_physics_informed_ml\": \"By augmenting SGA prompts with domain-speciﬁc data and materials theory to create the specialized CSGA, we substantially closed the accuracy gap:\", \"supports_domain_knowledge_injection\": \"CSGA’s plain text interface allows users to inject desired model modiﬁcations or qualita- tive insights\"}, \"mentions_llm\": true, \"mentions_faithfulness\": false, \"supports_physics_informed_ml\": true, \"supports_causal_reasoning\": false, \"supports_domain_knowledge_injection\": true, \"supports_social_science_survey_scope\": false, \"supports_cross_disciplinary_transferability\": false, \"supports_peer_review_quality_assessment\": false, \"supports_novelty_assessment\": false, \"supports_critique_homogenization\": false, \"supports_deficiency_identification\": false, \"supports_scientific_claim_critique\": false}",
+            "supported_contribution": "Augmenting SGA prompts with domain-specific data and materials theory creates specialized models (CSGA) that allow injecting model modifications and qualitative insights.",
+            "supported_contribution_quote": "By augmenting SGA prompts with domain-speciﬁc data and materials theory to create the specialized CSGA, we substantially closed the accuracy gap:",
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": true,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": true,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false,
+            "claim_evidence_alignment": "The chunk supports augmenting prompts with domain-specific data and materials theory to create specialized models (CSGA) and allowing users to inject modifications, but does not explicitly detail bilevel parameter optimization.",
+            "evidence_summary_accuracy": "Accurately reflects the chunk's discussion of benchmark comparisons between SGA/CSGA and CANN, domain knowledge injection, and materials theory.",
+            "cross_paper_inference": null,
+            "overgeneralization": null,
+            "research_opportunity": null,
+            "gap_origin_assessment": null,
+            "retrieval_error": null,
+            "assessment_error": null,
+            "contradiction_warning": null
+          }
+        ],
+        "cross_paper_inference": "The cross-paper inference is sound. Synthesizing the qualitative multi-module feedback mechanisms from P1 with the inner-loop parameter optimization and mathematical domain constraints from P3 logically identifies a novel unified research direction.",
+        "contradiction_warnings": [],
+        "joint_assessment": {
+          "status": "FULLY_SUPPORTED",
+          "complete_gap_assessment": "The candidate research gap is fully supported by the provided text. P1 (W4402683817) details a multi-module qualitative prompting feedback framework (MOOSE) evaluating novelty, reality, and clarity without quantitative physics or parameter optimization. Conversely, P3 (W4410862096) describes bilevel parameter optimization and constitutive modeling using materials theory (SGA/CSGA) without qualitative multi-criteria feedback loops. The synthesis of multi-module qualitative prompting feedback with quantitative physical parameter optimization is an unaddressed gap.",
+          "cross_paper_inference": "The cross-paper inference is sound. Synthesizing the qualitative multi-module feedback mechanisms from P1 with the inner-loop parameter optimization and mathematical domain constraints from P3 logically identifies a novel unified research direction.",
+          "evidence_summary_accuracy": "Accurate. P1 chunks 8 and 40 confirm discrete multi-module feedback loops for novelty, reality, and clarity. P3 chunks 9 and 53 confirm bilevel parameter optimization and domain-specific material theory constraints.",
+          "research_opportunity": "Future work can design hybrid optimization frameworks that integrate qualitative feedback loops (e.g., evaluating novelty and clarity) with quantitative inner-loop parameter calibration enforcing physical domain constraints.",
+          "gap_origin": "The declared origin of 'inferred_cross_paper' is accurate as the gap is derived by synthesizing complementary components and omissions from P1 and P3.",
+          "overgeneralization": "None identified. The gap statement accurately captures the specific methodological boundaries of qualitative feedback prompting and quantitative parameter optimization in the cited papers.",
+          "limitations": "The evaluation of qualitative feedback in P1 is grounded in social science hypothesis discovery, whereas the physical domain optimization in P3 focuses on constitutive equations in materials science.",
+          "counterevidence": "None. The provided chunks do not describe any existing framework that combines qualitative multi-criteria feedback loops with quantitative domain parameter optimization.",
+          "source_evidence": [
+            {
+              "paper_id": "https://openalex.org/W4402683817",
+              "chunk_ids": [
+                "https://openalex.org/W4402683817_chunk_40",
+                "https://openalex.org/W4402683817_chunk_8"
+              ]
+            },
+            {
+              "paper_id": "https://openalex.org/W4410862096",
+              "chunk_ids": [
+                "https://openalex.org/W4410862096_chunk_9",
+                "https://openalex.org/W4410862096_chunk_53"
+              ]
+            }
+          ],
+          "contradictions": []
+        },
+        "contradictions": [],
+        "joint_assessment_error": null
+      }
+    ],
+    "validation_counts": {
+      "FULLY_SUPPORTED": 4,
+      "PARTIALLY_SUPPORTED": 0,
+      "UNSUPPORTED": 0,
+      "VALIDATION_INCOMPLETE": 0
+    },
+    "evidence_status_counts": {
+      "SUPPORTED": 6,
+      "PARTIALLY_SUPPORTED": 4,
+      "UNSUPPORTED": 0,
+      "NOT_FOUND": 0,
+      "MISMATCHED": 0
+    },
+    "caveats": [
+      "Semantic assessments are limited to the supplied stored chunks; they do not establish novelty in the wider literature."
+    ],
+    "retrieval_failures": [],
+    "semantic_failures": [],
+    "provenance": {
+      "stage": "evidence_validation",
+      "input_fingerprints": {
+        "gap_detection": "b84690a72b5c36fb96b4ddb83ec15ac8b6b8b0931a0f121e145cf155599993f4"
+      },
+      "fingerprint_schemes": {}
+    }
+  },
+  "critic_result": {
+    "research_topic": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+    "review_status": "COMPLETE",
+    "gap_reviews": [
+      {
+        "gap_id": "GAP-001",
+        "decision": "ACCEPT",
+        "review_status": "COMPLETE",
+        "origin_assessment": "INFERRED",
+        "origin_rationale": "The gap origin is correctly classified as inferred, as it synthesizes P2's author-proposed future direction of using theme-focused knowledge graphs to preserve domain-specific tail knowledge (P2-E5) with P6's survey of existing LLM agent frameworks utilizing academic knowledge graphs (P6-E2).",
+        "reasoning": "The gap formulation is logical and well-supported within the scope of the provided corpus. P2-E5 establishes that general pre-training erases domain-specific tail knowledge and proposes theme-focused knowledge graphs as a remedy, while P6-E2 details current agent frameworks (e.g., SciAgents, KG-CoI) that operate on academic knowledge graphs. Synthesizing these highlights a clear integration gap for retaining tail knowledge in generative hypothesis loops.",
+        "criticisms": [
+          {
+            "category": "OVERGENERALIZATION",
+            "severity": "LOW",
+            "affected_claim": "P6 focuses on idea generation across bibliographic and chemical databases where specialized knowledge is critical.",
+            "issue": "Minor misattribution of chemical database domain focus to P6.",
+            "rationale": "Chunk P6-E2 reviews general academic knowledge graph agent frameworks, whereas chemical database references in the comparison text stem from P2 context. This minor extrapolation in the reasoning text does not undermine the validity of the core integration gap.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4416036182",
+                "chunk_ids": [
+                  "https://openalex.org/W4416036182_chunk_17"
+                ]
+              },
+              {
+                "paper_id": "https://openalex.org/W4404782812",
+                "chunk_ids": [
+                  "https://openalex.org/W4404782812_chunk_40"
+                ]
+              }
+            ]
+          }
+        ],
+        "revision_suggestions": [
+          {
+            "field": "reasoning",
+            "current_issue": "Inaccurately states that P6 focuses on chemical databases.",
+            "proposed_text": "P2 explicitly notes the future direction of using automated knowledge graphs to capture tail domain knowledge, while P6 surveys existing LLM agent frameworks that reason over academic knowledge graphs for idea generation. Cross-referencing these findings indicates a missing integration between fine-grained, theme-focused knowledge graphs and generative hypothesis loops.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4404782812",
+                "chunk_ids": [
+                  "https://openalex.org/W4404782812_chunk_40"
+                ]
+              },
+              {
+                "paper_id": "https://openalex.org/W4416036182",
+                "chunk_ids": [
+                  "https://openalex.org/W4416036182_chunk_17"
+                ]
+              }
+            ]
+          }
+        ],
+        "caveats": [
+          "Validation is strictly grounded in the provided chunks (P2-E5, P6-E2) and does not evaluate global novelty or literature outside this corpus."
+        ]
+      },
+      {
+        "gap_id": "GAP-002",
+        "decision": "ACCEPT",
+        "review_status": "COMPLETE",
+        "origin_assessment": "AUTHOR_STATED",
+        "origin_rationale": "Both Paper 1 (P1-E3) and Paper 2 (P2-E4) explicitly cite their domain boundaries as self-acknowledged limitations or future work within their respective text chunks (P1 notes that cross-disciplinary applicability is an unverified limitation, while P2 explicitly defers social sciences to future work).",
+        "reasoning": "The candidate gap formulation is sound and directly backed by the retrieved evidence chunks. P1-E3 demonstrates that hypothesis generation evaluation in P1 is restricted to social science literature with acknowledged uncertainty regarding generalizability to other scientific disciplines. P2-E4 confirms that P2's survey limits its scope to mathematics and natural sciences while omitting social sciences. The cross-paper synthesis logically identifies a gap in unified evaluation frameworks that span both natural and social sciences within the supplied corpus.",
+        "criticisms": [],
+        "revision_suggestions": [],
+        "caveats": [
+          "This evaluation is grounded solely in the provided evidence chunks from the 6-paper corpus and does not confirm global novelty or absence in the wider literature."
+        ]
+      },
+      {
+        "gap_id": "GAP-003",
+        "decision": "ACCEPT",
+        "review_status": "COMPLETE",
+        "origin_assessment": "AUTHOR_STATED",
+        "origin_rationale": "Both P4 (P4-E4) and P5 (P5-E1) explicitly state hallucinations, limited reasoning capabilities, and unfaithful self-explanations as author-acknowledged limitations of LLMs in scientific discovery workflows.",
+        "reasoning": "The gap is well-formulated and directly supported by the retrieved evidence chunks. P4-E4 notes model hallucinations and limited reasoning capabilities, while P5-E1 explicitly identifies hallucinations and unfaithful self-explanations as key operational limitations. The synthesis accurately captures the gap between text generation capabilities and trustworthy, faithful explanations in automated scientific discovery.",
+        "criticisms": [
+          {
+            "category": "EVIDENCE_MISUSE",
+            "severity": "LOW",
+            "affected_claim": "P5 emphasizes that general LLMs without rigorous knowledge injection struggle with precision and factual accuracy.",
+            "issue": "Minor attribution inaccuracy in evidence summary regarding precision metrics.",
+            "rationale": "Individual evidence validation for P5-E1 indicates the source chunk discusses hallucinated content and unfaithful self-explanations, but does not explicitly report precision metrics or precision/accuracy constraint phrasing on specialized tasks.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4414948975",
+                "chunk_ids": [
+                  "https://openalex.org/W4414948975_chunk_65"
+                ]
+              }
+            ]
+          }
+        ],
+        "revision_suggestions": [],
+        "caveats": [
+          "Validation is strictly grounded in the supplied chunks (P4-E4, P5-E1) and does not reflect global literature novelty."
+        ]
+      },
+      {
+        "gap_id": "GAP-004",
+        "decision": "ACCEPT",
+        "review_status": "COMPLETE",
+        "origin_assessment": "INFERRED",
+        "origin_rationale": "The candidate gap is derived by synthesizing complementary methodologies across P1 (qualitative multi-module feedback loops) and P3 (quantitative parameter optimization with materials theory constraints), rather than being explicitly claimed as future work by the authors of a single paper.",
+        "reasoning": "The synthesis is logical and firmly grounded in the retrieved evidence. P1 establishes multi-module prompting feedback focusing on qualitative criteria such as novelty, reality, and clarity (P1-E1, P1-E4). In contrast, P3 utilizes bilevel parameter optimization enforcing domain-specific mathematical and physical constraints (P3-E2, P3-E3). Combining qualitative multi-criteria feedback mechanisms with quantitative inner-loop parameter optimization against domain equations represents a well-reasoned integration gap within the scope of the analyzed corpus.",
+        "criticisms": [],
+        "revision_suggestions": [],
+        "caveats": [
+          "P1 evaluates qualitative feedback in open-domain and social science hypothesis contexts, whereas P3 applies quantitative parameter optimization to physical constitutive equations in materials science."
+        ]
+      }
+    ],
+    "missing_inputs": [],
+    "caveats": [
+      "All evaluations are derived solely from the provided text chunks and cross-paper synthesis context.",
+      "All decisions and origin classifications apply strictly within the boundaries of the supplied context and evidence chunks.",
+      "Reviews are restricted entirely to the provided context and evidence chunks.",
+      "FULL_SUPPORTED status within the corpus does not confirm absence or novelty in the broader scientific literature.",
+      "Assessments are strictly bound to the supplied corpus excerpts and do not reflect broader literature outside the provided text."
+    ],
+    "errors": [],
+    "input_fingerprints": {
+      "comparison": "508f644bbb08a1bbad0b60916f11b6fbd6bcf200943ca2557a72ba71b035eb5f",
+      "gap_detection": "b84690a72b5c36fb96b4ddb83ec15ac8b6b8b0931a0f121e145cf155599993f4",
+      "evidence_validation": "47b29dbc69b8387f5e36f3c2bb0e937d86d07eca9610b1fad98dcfc9ce3d66ea"
+    }
+  },
+  "research_questions": {
+    "research_topic": "Within the supplied corpus, what approaches are used to support LLM-enabled scientific hypothesis generation or discovery, and what limitations or evaluation gaps do the papers report?",
+    "generation_status": "INCOMPLETE",
+    "gap_results": [
+      {
+        "gap_id": "GAP-001",
+        "gap_title": "Integrating Knowledge Graphs into LLM-Based Hypothesis Generation to Preserve Tail Knowledge",
+        "gap_origin": "inferred_cross_paper",
+        "critic_caveats": [
+          "Validation is strictly grounded in the provided chunks (P2-E5, P6-E2) and does not evaluate global novelty or literature outside this corpus."
+        ],
+        "evidence_backed_facts": [
+          {
+            "statement": "General pre-training of scientific LLMs risks wiping out domain-specific tail knowledge, and automatically curating in-depth, theme-focused knowledge graphs to guide generation is highlighted as a promising solution.",
+            "validation_status": "SUPPORTED",
+            "source_evidence": {
+              "paper_id": "https://openalex.org/W4404782812",
+              "chunk_ids": [
+                "https://openalex.org/W4404782812_chunk_40"
+              ]
+            },
+            "validation_limitations": [],
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false
+          },
+          {
+            "statement": "the cited paper surveys existing LLM research idea generation frameworks that utilize reasoning over academic knowledge graphs.",
+            "validation_status": "SUPPORTED",
+            "source_evidence": {
+              "paper_id": "https://openalex.org/W4416036182",
+              "chunk_ids": [
+                "https://openalex.org/W4416036182_chunk_17"
+              ]
+            },
+            "validation_limitations": [],
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false
+          }
+        ],
+        "research_questions": [
+          {
+            "question": "How can LLM-based idea generation agent pipelines dynamically integrate theme-focused knowledge graphs to enhance the preservation of domain-specific tail knowledge during hypothesis generation?",
+            "rationale": "Evidence motivating this question: SUPPORTED evidence: General pre-training of scientific LLMs risks wiping out domain-specific tail knowledge, and automatically curating in-depth, theme-focused knowledge graphs to guide generation is highlighted as a promising solution. SUPPORTED evidence: the cited paper surveys existing LLM research idea generation frameworks that utilize reasoning over academic knowledge graphs.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4404782812",
+                "chunk_ids": [
+                  "https://openalex.org/W4404782812_chunk_40"
+                ]
+              },
+              {
+                "paper_id": "https://openalex.org/W4416036182",
+                "chunk_ids": [
+                  "https://openalex.org/W4416036182_chunk_17"
+                ]
+              }
+            ]
+          },
+          {
+            "question": "To what extent does incorporating theme-focused knowledge graphs into LLM hypothesis generation pipelines improve the retrieval accuracy of specialized tail concepts compared to using general academic knowledge graphs?",
+            "rationale": "Evidence motivating this question: SUPPORTED evidence: General pre-training of scientific LLMs risks wiping out domain-specific tail knowledge, and automatically curating in-depth, theme-focused knowledge graphs to guide generation is highlighted as a promising solution. SUPPORTED evidence: the cited paper surveys existing LLM research idea generation frameworks that utilize reasoning over academic knowledge graphs.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4404782812",
+                "chunk_ids": [
+                  "https://openalex.org/W4404782812_chunk_40"
+                ]
+              },
+              {
+                "paper_id": "https://openalex.org/W4416036182",
+                "chunk_ids": [
+                  "https://openalex.org/W4416036182_chunk_17"
+                ]
+              }
+            ]
+          }
+        ],
+        "hypothesis_status": "GENERATED",
+        "hypothesis": {
+          "narrower_subgap": "Narrower sub-gap tested: whether Type of knowledge graph integrated into the LLM hypothesis generation pipeline (theme-focused knowledge graph vs. standard general academic knowledge graph) changes Retention of domain-specific tail knowledge in generated hypotheses relative to Standard general academic knowledge graph baseline pipeline.",
+          "alternative_hypothesis": "Proposed test: LLM-based hypothesis generation pipelines incorporating dynamic queries to theme-focused knowledge graphs achieve higher retention of domain-specific tail knowledge in generated hypotheses than pipelines relying on standard general academic knowledge graphs.",
+          "null_hypothesis": "Proposed null test: LLM-based hypothesis generation pipelines incorporating dynamic queries to theme-focused knowledge graphs show no significant difference in the retention of domain-specific tail knowledge in generated hypotheses compared to pipelines relying on standard general academic knowledge graphs.",
+          "rationale": "The cited evidence motivates this proposed test; it does not establish the predicted outcome. Evidence motivating this question: SUPPORTED evidence: General pre-training of scientific LLMs risks wiping out domain-specific tail knowledge, and automatically curating in-depth, theme-focused knowledge graphs to guide generation is highlighted as a promising solution. SUPPORTED evidence: the cited paper surveys existing LLM research idea generation frameworks that utilize reasoning over academic knowledge graphs.",
+          "source_evidence": [
+            {
+              "paper_id": "https://openalex.org/W4404782812",
+              "chunk_ids": [
+                "https://openalex.org/W4404782812_chunk_40"
+              ]
+            },
+            {
+              "paper_id": "https://openalex.org/W4416036182",
+              "chunk_ids": [
+                "https://openalex.org/W4416036182_chunk_17"
+              ]
+            }
+          ],
+          "independent_variable": "Type of knowledge graph integrated into the LLM hypothesis generation pipeline (theme-focused knowledge graph vs. standard general academic knowledge graph)",
+          "dependent_variable": "Retention of domain-specific tail knowledge in generated hypotheses",
+          "comparator": "Standard general academic knowledge graph baseline pipeline",
+          "measurable_outcome": "Percentage of verified domain-specific tail entities and relations correctly integrated into generated research hypotheses"
+        },
+        "hypothesis_limitation": null,
+        "generation_status": "COMPLETE",
+        "errors": []
+      },
+      {
+        "gap_id": "GAP-002",
+        "gap_title": "Cross-Disciplinary Generalizability and Evaluation of Hypothesis Generation Frameworks Across Natural and Social Sciences",
+        "gap_origin": "explicitly_stated",
+        "critic_caveats": [
+          "This evaluation is grounded solely in the provided evidence chunks from the 6-paper corpus and does not confirm global novelty or absence in the wider literature."
+        ],
+        "evidence_backed_facts": [
+          {
+            "statement": "The survey explicitly acknowledges the omission of social sciences from its coverage, focusing instead on mathematics and natural sciences due to space limitations.",
+            "validation_status": "SUPPORTED",
+            "source_evidence": {
+              "paper_id": "https://openalex.org/W4404782812",
+              "chunk_ids": [
+                "https://openalex.org/W4404782812_chunk_42"
+              ]
+            },
+            "validation_limitations": [],
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": true,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false
+          }
+        ],
+        "research_questions": [
+          {
+            "question": "How do automated hypothesis generation frameworks evaluated in natural sciences perform when applied to social science research contexts?",
+            "rationale": "Evidence motivating this question: SUPPORTED evidence: The survey explicitly acknowledges the omission of social sciences from its coverage, focusing instead on mathematics and natural sciences due to space limitations.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4404782812",
+                "chunk_ids": [
+                  "https://openalex.org/W4404782812_chunk_42"
+                ]
+              }
+            ]
+          }
+        ],
+        "hypothesis_status": "INSUFFICIENT_EVIDENCE",
+        "hypothesis": null,
+        "hypothesis_limitation": "A reliable hypothesis cannot be generated from the available evidence because hypothesis_evidence_sufficient is set to false in the input data.",
+        "generation_status": "COMPLETE",
+        "errors": []
+      },
+      {
+        "gap_id": "GAP-003",
+        "gap_title": "Faithful Reasoning and Hallucination Mitigation in Autonomous Scientific Discovery Agents",
+        "gap_origin": "explicitly_stated",
+        "critic_caveats": [
+          "Validation is strictly grounded in the supplied chunks (P4-E4, P5-E1) and does not reflect global literature novelty."
+        ],
+        "evidence_backed_facts": [
+          {
+            "statement": "LLMs face key limitations in scientific domains, including hallucinations, limited reasoning capabilities, and a lack of transparency.",
+            "validation_status": "PARTIALLY_SUPPORTED",
+            "source_evidence": {
+              "paper_id": "https://openalex.org/W4412954363",
+              "chunk_ids": [
+                "https://openalex.org/W4412954363_chunk_43"
+              ]
+            },
+            "validation_limitations": [
+              "The text does not explicitly use the phrase 'unfaithful reasoning', referring instead to 'limited reasoning capabilities' and 'lack of transparency'."
+            ],
+            "mentions_llm": true,
+            "mentions_faithfulness": false,
+            "supports_physics_informed_ml": true,
+            "supports_causal_reasoning": true,
+            "supports_domain_knowledge_injection": false,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false
+          },
+          {
+            "statement": "Language models can give credible-sounding but false answers and explanations that do not describe how the answer was produced, and grounding them in vetted domain material reduces these errors.",
+            "validation_status": "PARTIALLY_SUPPORTED",
+            "source_evidence": {
+              "paper_id": "https://openalex.org/W4414948975",
+              "chunk_ids": [
+                "https://openalex.org/W4414948975_chunk_65"
+              ]
+            },
+            "validation_limitations": [
+              "The chunk does not use the specific terms 'lack precision' or 'accuracy constraints on specialized tasks'."
+            ],
+            "mentions_llm": true,
+            "mentions_faithfulness": true,
+            "supports_physics_informed_ml": false,
+            "supports_causal_reasoning": false,
+            "supports_domain_knowledge_injection": true,
+            "supports_social_science_survey_scope": false,
+            "supports_cross_disciplinary_transferability": false,
+            "supports_peer_review_quality_assessment": false,
+            "supports_novelty_assessment": false,
+            "supports_critique_homogenization": false,
+            "supports_deficiency_identification": false,
+            "supports_scientific_claim_critique": false
+          }
+        ],
+        "research_questions": [
+          {
+            "question": "How can self-verification architectures be designed to mitigate hallucinations and address limited reasoning capabilities and lack of transparency in scientific LLM workflows?",
+            "rationale": "Evidence motivating this question: Partial evidence (PARTIALLY_SUPPORTED): LLMs face key limitations in scientific domains, including hallucinations, limited reasoning capabilities, and a lack of transparency. Limitations: The text does not explicitly use the phrase 'unfaithful reasoning', referring instead to 'limited reasoning capabilities' and 'lack of transparency'. This motivates investigation but does not establish the broader claim. Partial evidence (PARTIALLY_SUPPORTED): Language models can give credible-sounding but false answers and explanations that do not describe how the answer was produced, and grounding them in vetted domain material reduces these errors. Limitations: The chunk does not use the specific terms 'lack precision' or 'accuracy constraints on specialized tasks'. This motivates investigation but does not establish the broader claim.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4412954363",
+                "chunk_ids": [
+                  "https://openalex.org/W4412954363_chunk_43"
+                ]
+              },
+              {
+                "paper_id": "https://openalex.org/W4414948975",
+                "chunk_ids": [
+                  "https://openalex.org/W4414948975_chunk_65"
+                ]
+              }
+            ]
+          },
+          {
+            "question": "To what extent does domain knowledge injection reduce unfaithful self-explanations and factually incorrect outputs in LLM-based autonomous research agents?",
+            "rationale": "Evidence motivating this question: Partial evidence (PARTIALLY_SUPPORTED): Language models can give credible-sounding but false answers and explanations that do not describe how the answer was produced, and grounding them in vetted domain material reduces these errors. Limitations: The chunk does not use the specific terms 'lack precision' or 'accuracy constraints on specialized tasks'. This motivates investigation but does not establish the broader claim.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4414948975",
+                "chunk_ids": [
+                  "https://openalex.org/W4414948975_chunk_65"
+                ]
+              }
+            ]
+          },
+          {
+            "question": "What mechanisms can ensure that self-explanations provided by automated scientific discovery agents accurately reflect their underlying reasoning capabilities and operational transparency?",
+            "rationale": "Evidence motivating this question: Partial evidence (PARTIALLY_SUPPORTED): Language models can give credible-sounding but false answers and explanations that do not describe how the answer was produced, and grounding them in vetted domain material reduces these errors. Limitations: The chunk does not use the specific terms 'lack precision' or 'accuracy constraints on specialized tasks'. This motivates investigation but does not establish the broader claim.",
+            "source_evidence": [
+              {
+                "paper_id": "https://openalex.org/W4414948975",
+                "chunk_ids": [
+                  "https://openalex.org/W4414948975_chunk_65"
+                ]
+              }
+            ]
+          }
+        ],
+        "hypothesis_status": "INSUFFICIENT_EVIDENCE",
+        "hypothesis": null,
+        "hypothesis_limitation": "A falsifiable alternative and null hypothesis cannot be reliably generated because the input explicitly specifies that evidence is insufficient (hypothesis_evidence_sufficient is false) and the available evidence sources are only partially supported.",
+        "generation_status": "COMPLETE",
+        "errors": []
+      }
+    ],
+    "skipped_gaps": [
+      {
+        "gap_id": "GAP-004",
+        "reason": "Model assessment failed: API quota exhausted (HTTP 429)."
+      }
+    ],
+    "missing_inputs": [],
+    "caveats": [
+      "Research questions and hypotheses are proposals based only on the supplied evidence; they do not establish global novelty.",
+      "INCOMPLETE PARTIAL GENERATION: this output is not a final report; one or more gaps were skipped or could not be generated."
+    ],
+    "errors": [
+      "GAP-004: Model assessment failed: API quota exhausted (HTTP 429)."
+    ]
+  },
+  "critic_input_fingerprints": {
+    "comparison": "508f644bbb08a1bbad0b60916f11b6fbd6bcf200943ca2557a72ba71b035eb5f",
+    "gap_detection": "b84690a72b5c36fb96b4ddb83ec15ac8b6b8b0931a0f121e145cf155599993f4",
+    "evidence_validation": "47b29dbc69b8387f5e36f3c2bb0e937d86d07eca9610b1fad98dcfc9ce3d66ea"
+  },
+  "revision_applied": true,
+  "workflow_status": "STOPPED",
+  "stop_reason": "Research question/hypothesis generation was incomplete.",
+  "resume_from_evidence": false,
+  "resume_from_critic": true,
+  "revised_gap_ids": [
+    "GAP-001"
+  ]
+}

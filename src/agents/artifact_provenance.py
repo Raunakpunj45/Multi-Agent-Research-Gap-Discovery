@@ -9,6 +9,11 @@ from pydantic import BaseModel, Field
 class ArtifactProvenance(BaseModel):
     stage: str
     input_fingerprints: dict[str, str] = Field(default_factory=dict)
+    fingerprint_schemes: dict[str, str] = Field(default_factory=dict)
+
+
+RAW_BYTES_SHA256 = "raw_bytes_sha256"
+CANONICAL_JSON_SHA256 = "canonical_json_sha256"
 
 
 def fingerprint_bytes(payload: bytes) -> str:
@@ -36,6 +41,17 @@ def require_fingerprint(provenance: ArtifactProvenance | None,
         raise ValueError(
             f"{artifact} is stale: {name!r} input fingerprint does not match the current artifact."
         )
+
+
+def require_fingerprint_scheme(provenance: ArtifactProvenance | None, name: str,
+                              artifact: str, expected_scheme: str) -> None:
+    if provenance is None:
+        raise ValueError(f"{artifact} is missing provenance; regenerate it before use.")
+    scheme = provenance.fingerprint_schemes.get(name, RAW_BYTES_SHA256)
+    if scheme not in (RAW_BYTES_SHA256, CANONICAL_JSON_SHA256):
+        raise ValueError(f"{artifact} has an unsupported {name!r} fingerprint scheme: {scheme!r}.")
+    if scheme != expected_scheme:
+        raise ValueError(f"{artifact} has an ambiguous or mismatched {name!r} fingerprint scheme: {scheme!r}.")
 
 
 def require_recorded_fingerprint(provenance: ArtifactProvenance | None,

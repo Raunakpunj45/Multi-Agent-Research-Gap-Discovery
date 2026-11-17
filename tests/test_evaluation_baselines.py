@@ -1,11 +1,12 @@
 import json
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
+import pytest
 
 from src.evaluation.baselines import (
     ConventionalRAGBaseline,
     EvaluationCorpus,
+    GeminiStructuredGenerator,
     SingleLLMBaseline,
     build_read_only_rag_retriever,
     load_frozen_evaluation_corpus,
@@ -97,6 +98,41 @@ def test_single_llm_makes_one_call_over_full_paper_chunks_and_preserves_exact_id
     assert output.completion_status is OutputCompletionStatus.COMPLETE
 
 
+def test_gemini_structured_generator_removes_additional_properties_and_validates_strictly():
+    from pydantic import ValidationError
+    from src.evaluation.baselines import _GeneratedGapSet
+
+    class Models:
+        def __init__(self, response):
+            self.response = response
+            self.config = None
+
+        def generate_content(self, **kwargs):
+            self.config = kwargs["config"]
+            return self.response
+
+    def contains_additional_properties(value):
+        if isinstance(value, dict):
+            return any(key in value for key in ("additionalProperties", "additional_properties")) or any(
+                contains_additional_properties(nested) for nested in value.values()
+            )
+        if isinstance(value, list):
+            return any(contains_additional_properties(nested) for nested in value)
+        return False
+
+    models = Models(SimpleNamespace(parsed={"gaps": [{"title": "Gap", "description": "Description",
+                                                       "evidence": [{"paper_id": PAPER_IDS[0], "chunk_id": "c1"}]}]}))
+    result = GeminiStructuredGenerator(client=SimpleNamespace(models=models)).generate("prompt", _GeneratedGapSet)
+    assert result.gaps[0].evidence[0].paper_id == PAPER_IDS[0]
+    assert not contains_additional_properties(models.config.response_schema)
+    # Ensure the SDK's serialized generation config cannot reintroduce the rejected field.
+    assert "additional_properties" not in str(models.config.model_dump(by_alias=True)).lower()
+
+    models.response = SimpleNamespace(parsed={"gaps": [], "unexpected": "reject"})
+    with pytest.raises(ValidationError):
+        GeminiStructuredGenerator(client=SimpleNamespace(models=models)).generate("prompt", _GeneratedGapSet)
+
+
 def test_conventional_rag_retrieves_per_paper_then_generates_once():
     data = corpus()
     retriever = Mock()
@@ -185,17 +221,18 @@ def test_read_only_chroma_builder_gets_existing_collection_without_create(monkey
     assert collection.query_kwargs["where"] == {"paper_id": PAPER_IDS[0]}
 
 
-def test_real_manifest_exposes_the_same_finalized_six_papers_and_three_prompts():
-    root = Path(__file__).resolve().parents[1]
-    loaded = load_frozen_evaluation_corpus(root / "data" / "evaluation" / "dataset_manifest.jsonl")
+def test_real_manifest_exposes_the_same_finalized_six_papers_and_three_prompts(evaluation_corpus):
+    loaded = load_frozen_evaluation_corpus(
+        evaluation_corpus.manifest, repo_root=evaluation_corpus.root,
+    )
     assert len(loaded.papers) == 6
     assert list(loaded.prompts) == ["PROMPT-001", "PROMPT-002", "PROMPT-003"]
 
 
-def test_baseline_output_imports_through_the_existing_evaluation_runner(tmp_path):
-    root = Path(__file__).resolve().parents[1]
-    manifest_path = root / "data" / "evaluation" / "dataset_manifest.jsonl"
-    loaded = load_frozen_evaluation_corpus(manifest_path)
+def test_baseline_output_imports_through_the_existing_evaluation_runner(evaluation_corpus, tmp_path):
+    root = evaluation_corpus.root
+    manifest_path = evaluation_corpus.manifest
+    loaded = load_frozen_evaluation_corpus(manifest_path, repo_root=root)
     first = loaded.papers[0]
     extractor = Mock()
     extractor.extract_text.return_value = "exact source quote plus context"
@@ -216,6 +253,7 @@ def test_baseline_output_imports_through_the_existing_evaluation_runner(tmp_path
         citation_index_path=owners_path,
         research_prompt_id=PROMPT_ID,
         canonical_prompt_text=loaded.prompts[PROMPT_ID]["text"],
+        repo_root=root,
     )
 
     saved = json.loads((run_dir / "outputs.json").read_text(encoding="utf-8"))

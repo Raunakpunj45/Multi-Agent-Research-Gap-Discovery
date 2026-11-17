@@ -33,6 +33,7 @@ from src.agents.evidence_validation_agent import (
     EvidenceValidationAgent,
     EvidenceValidationResult,
     EvidenceValidationStatus,
+    GapSupportStatus,
     GapValidationStatus,
 )
 from src.agents.paper_analysis_agent import PaperAnalysisResult
@@ -40,6 +41,7 @@ from src.agents.paper_analysis_pipeline import PaperAnalysisPipeline
 from src.agents.planner_agent import SearchPlan
 from src.agents.planner_retrieval_agent import PlannerRetrievalAgent
 from src.agents.research_gap_detection_agent import (
+    GapOrigin,
     ResearchGap,
     ResearchGapDetectionAgent,
     ResearchGapDetectionResult,
@@ -83,6 +85,11 @@ class ResearchWorkflowState(TypedDict, total=False):
     revision_applied: bool
     workflow_status: str
     stop_reason: str | None
+    resume_from_evidence: bool
+    resume_from_critic: bool
+    revised_gap_ids: list[str]
+    # Append-only record of resume/recovery steps that produced this artifact.
+    run_lineage: list[dict]
 
 
 @dataclass
@@ -186,10 +193,11 @@ def _all_comparison_evidence(comparison: MultiPaperComparison) -> set[tuple[str,
     return {(ref.paper_id, chunk_id) for ref in refs for chunk_id in ref.chunk_ids}
 
 
-def _sufficient_evidence(
+def _evidence_validation_complete(
     gap_result: ResearchGapDetectionResult,
     validation: EvidenceValidationResult,
 ) -> bool:
+    """Check completion and reference integrity without judging support strength."""
     if validation.retrieval_failures or validation.semantic_failures:
         return False
     if not validation.gap_validations:
@@ -201,25 +209,69 @@ def _sufficient_evidence(
         return False
     if set(validation.paper_ids) != set(gap_result.paper_ids):
         return False
-    for gap in validation.gap_validations:
-        if (gap.status is not GapValidationStatus.FULLY_SUPPORTED
-                or not gap.evidence_validations):
+    gap_by_id = {gap.gap_id: gap for gap in gap_result.gaps}
+    for validated_gap in validation.gap_validations:
+        if (validated_gap.status is GapValidationStatus.VALIDATION_INCOMPLETE
+                or validated_gap.joint_assessment is None):
             return False
-        if any(
-            item.status is not EvidenceValidationStatus.SUPPORTED
-            or item.retrieval_error is not None
-            or item.assessment_error is not None
-            for item in gap.evidence_validations
-        ):
+        expected = [
+            (ref.paper_id, chunk_id)
+            for ref in gap_by_id[validated_gap.gap_id].supporting_evidence
+            for chunk_id in ref.chunk_ids
+        ]
+        actual = [(item.paper_id, item.chunk_id)
+                  for item in validated_gap.evidence_validations]
+        if (not expected or len(expected) != len(set(expected))
+                or len(actual) != len(set(actual)) or set(expected) != set(actual)):
+            return False
+        if any(item.status not in (
+                EvidenceValidationStatus.SUPPORTED,
+                EvidenceValidationStatus.PARTIALLY_SUPPORTED,
+                EvidenceValidationStatus.UNSUPPORTED,
+        ) or item.retrieval_error is not None or item.assessment_error is not None
+               for item in validated_gap.evidence_validations):
             return False
     return True
+
+
+def _questions_evidence_eligible(
+    gap_result: ResearchGapDetectionResult,
+    validation: EvidenceValidationResult,
+    gap_ids: set[str] | None = None,
+) -> bool:
+    """Reject question generation where any selected gap has unsupported evidence.
+
+    Validation completeness is always checked for every gap. Support strength is
+    checked for ``gap_ids`` (the critic-accepted gaps), or for all gaps when no
+    subset is given; critic-rejected gaps never receive questions.
+    """
+    if not _evidence_validation_complete(gap_result, validation):
+        return False
+    by_id = {item.gap_id: item for item in validation.gap_validations}
+    selected = [gap for gap in gap_result.gaps
+                if gap_ids is None or gap.gap_id in gap_ids]
+    if not selected:
+        return False
+    for gap in selected:
+        item = by_id[gap.gap_id]
+        if (item.status is GapValidationStatus.UNSUPPORTED
+                or item.joint_assessment.status is GapSupportStatus.UNSUPPORTED
+                or not any(record.status in (
+                    EvidenceValidationStatus.SUPPORTED,
+                    EvidenceValidationStatus.PARTIALLY_SUPPORTED,
+                ) for record in item.evidence_validations)):
+            return False
+    return True
+
+
+MIN_GAP_SUPPORTING_PAPERS = 2
 
 
 def _apply_revision_suggestions(
     gap_result: ResearchGapDetectionResult,
     comparison: MultiPaperComparison,
     critic: CriticResult,
-) -> tuple[ResearchGapDetectionResult, bool]:
+) -> tuple[ResearchGapDetectionResult, list[str]]:
     """Apply only constrained critic text revisions, retaining verified evidence."""
     safe_fields = {
         "title",
@@ -229,52 +281,81 @@ def _apply_revision_suggestions(
         "confidence_reason",
         "research_opportunity",
     }
+    origin_fields = {"origin", "origin_assessment", "gap_origin"}
+    evidence_label_fields = {"gap_evidence_labels", "supporting_evidence_labels"}
     allowed_refs = _all_comparison_evidence(comparison)
     reviews = {review.gap_id: review for review in critic.gap_reviews}
     updated_gaps: list[ResearchGap] = []
-    changed = False
+    changed_gap_ids: list[str] = []
 
     for gap in gap_result.gaps:
         review = reviews.get(gap.gap_id)
         updates: dict = {}
+        # Evidence cited by applied text/origin suggestions is always retained,
+        # independently of the order in which a label replacement appears.
         added_refs: list[EvidenceRef] = []
-        if review and review.decision is CriticDecision.REVISE:
+        replacement_refs: list[EvidenceRef] | None = None
+        if (review and review.review_status is CriticReviewStatus.COMPLETE
+                and review.decision is CriticDecision.REVISE):
             for suggestion in review.revision_suggestions:
-                field = suggestion.field.strip().lower()
+                field = suggestion.field.strip().lower().replace("-", "_").replace(" ", "_")
                 proposed = suggestion.proposed_text.strip()
-                if field not in safe_fields or not proposed:
+                if not proposed:
                     continue
-                if any(
+                valid_refs = not any(
                     (ref.paper_id, chunk_id) not in allowed_refs
                     for ref in suggestion.source_evidence
                     for chunk_id in ref.chunk_ids
-                ):
+                )
+                if not valid_refs:
                     continue
-                updates[field] = proposed
-                added_refs.extend(suggestion.source_evidence)
+                if field in safe_fields:
+                    updates[field] = proposed
+                    added_refs.extend(suggestion.source_evidence)
+                elif field in origin_fields:
+                    origin_value = proposed.strip().lower().replace(" ", "_")
+                    if origin_value in {"inferred", "inferred_cross_paper"}:
+                        updates["gap_origin"] = GapOrigin.INFERRED
+                    elif origin_value in {"explicit", "explicitly_stated", "author_stated"}:
+                        updates["gap_origin"] = GapOrigin.EXPLICIT
+                    else:
+                        continue
+                    added_refs.extend(suggestion.source_evidence)
+                elif field in evidence_label_fields:
+                    # Labels are presentation aliases; the Critic's exact source
+                    # references are the canonical IDs/chunks to retain.
+                    if not suggestion.source_evidence:
+                        continue
+                    replacement_refs = list(suggestion.source_evidence)
 
-        if updates:
-            refs = list(gap.supporting_evidence)
+        if updates or replacement_refs is not None:
+            refs = list(replacement_refs if replacement_refs is not None
+                        else gap.supporting_evidence)
             seen = {(ref.paper_id, chunk) for ref in refs for chunk in ref.chunk_ids}
             for ref in added_refs:
                 new_chunks = [chunk for chunk in ref.chunk_ids if (ref.paper_id, chunk) not in seen]
                 if new_chunks:
                     refs.append(EvidenceRef(paper_id=ref.paper_id, chunk_ids=new_chunks))
                     seen.update((ref.paper_id, chunk) for chunk in new_chunks)
+            revised_paper_ids = list(dict.fromkeys(ref.paper_id for ref in refs))
+            if len(revised_paper_ids) < MIN_GAP_SUPPORTING_PAPERS:
+                # A revision may not turn a cross-paper gap into a single-paper
+                # limitation; leave this gap unchanged so the critic decision
+                # remains unresolved instead of silently narrowing the evidence.
+                updated_gaps.append(gap)
+                continue
             updates["supporting_evidence"] = refs
-            updates["supporting_paper_ids"] = list(dict.fromkeys(
-                ref.paper_id for ref in refs
-            ))
+            updates["supporting_paper_ids"] = revised_paper_ids
             updates["supporting_chunk_ids"] = list(dict.fromkeys(
                 chunk for ref in refs for chunk in ref.chunk_ids
             ))
             updated_gaps.append(gap.model_copy(update=updates))
-            changed = True
+            changed_gap_ids.append(gap.gap_id)
         else:
             updated_gaps.append(gap)
 
-    if not changed:
-        return gap_result, False
+    if not changed_gap_ids:
+        return gap_result, []
     revised = gap_result.model_copy(update={
         "gaps": updated_gaps,
         "provenance": ArtifactProvenance(
@@ -289,7 +370,7 @@ def _apply_revision_suggestions(
             "Gap text was updated from critic suggestions; all evidence references remain tied to comparison-owned chunks and are revalidated.",
         ])),
     })
-    return revised, True
+    return revised, changed_gap_ids
 
 
 def build_research_graph(agents: WorkflowAgents | None = None):
@@ -346,6 +427,11 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         selected = state["papers"][:max_papers] if max_papers else state["papers"]
         analyses: list[PaperAnalysisResult] = []
         excluded: list[ExcludedPaper] = []
+        # Each workflow run starts with fresh run-scoped quota state; it is
+        # not cleared between papers, so a daily 429 stops this run's papers.
+        begin_run = getattr(agents.paper_analysis, "begin_run", None)
+        if callable(begin_run):
+            begin_run()
         for paper in selected:
             paper_id = _paper_id(paper)
             try:
@@ -358,11 +444,18 @@ def build_research_graph(agents: WorkflowAgents | None = None):
                 path = paths.get(paper_id)
                 if not path:
                     path = agents.paper_analysis._resolve_pdf_path(paper, paper_id, paths)
-                analyses.append(agents.paper_analysis.analyze_paper(
+                analysis = agents.paper_analysis.analyze_paper(
                     paper=paper,
                     pdf_path=str(Path(path)),
                     analysis_query=state["analysis_query"],
-                ))
+                )
+                evidence_owners = {item.paper_id for item in analysis.evidence}
+                if not evidence_owners or evidence_owners != {paper_id}:
+                    raise ValueError(
+                        f"Analysis evidence for {paper_id!r} is missing or contains "
+                        f"chunks owned by other papers: {sorted(evidence_owners)}."
+                    )
+                analyses.append(analysis)
             except Exception as error:
                 if evaluation_mode:
                     raise ValueError(
@@ -432,7 +525,45 @@ def build_research_graph(agents: WorkflowAgents | None = None):
             _model_fingerprint(state["comparison"]),
             "Gap detection artifact",
         )
-        result = agents.evidence_validation.validate(gap_result)
+        revised_gap_ids = state.get("revised_gap_ids", [])
+        prior_validation = state.get("evidence_validation")
+        if state.get("revision_applied") and revised_gap_ids and prior_validation is not None:
+            revised_set = set(revised_gap_ids)
+            focused_gap_result = gap_result.model_copy(update={
+                "gaps": [gap for gap in gap_result.gaps if gap.gap_id in revised_set],
+            })
+            focused_result = agents.evidence_validation.validate(focused_gap_result)
+            new_by_id = {item.gap_id: item for item in focused_result.gap_validations}
+            if (len(new_by_id) != len(focused_result.gap_validations)
+                    or set(new_by_id) != revised_set):
+                raise ValueError("Focused evidence revalidation did not return exactly the revised gaps.")
+            old_by_id = {item.gap_id: item for item in prior_validation.gap_validations}
+            if (len(old_by_id) != len(prior_validation.gap_validations)
+                    or set(old_by_id) != {gap.gap_id for gap in gap_result.gaps}):
+                raise ValueError("Prior evidence validation does not exactly match the revised gap set.")
+            merged = [new_by_id[gap.gap_id] if gap.gap_id in revised_set else old_by_id[gap.gap_id]
+                      for gap in gap_result.gaps]
+            gap_statuses = [item.status.value for item in merged]
+            evidence_statuses = [
+                record.status.value for item in merged for record in item.evidence_validations
+                if record.status is not None
+            ]
+            result = focused_result.model_copy(update={
+                "gap_validations": merged,
+                "validation_counts": {status.value: gap_statuses.count(status.value)
+                                      for status in GapValidationStatus},
+                "evidence_status_counts": {
+                    status.value: evidence_statuses.count(status.value)
+                    for status in EvidenceValidationStatus
+                },
+                "retrieval_failures": list(prior_validation.retrieval_failures)
+                                      + list(focused_result.retrieval_failures),
+                "semantic_failures": list(prior_validation.semantic_failures)
+                                     + list(focused_result.semantic_failures),
+                "caveats": list(dict.fromkeys(prior_validation.caveats + focused_result.caveats)),
+            })
+        else:
+            result = agents.evidence_validation.validate(gap_result)
         if set(result.paper_ids) != set(gap_result.paper_ids):
             raise ValueError("Evidence validation changed the gap-detection paper IDs.")
         if state.get("evaluation_prompt_id"):
@@ -472,10 +603,10 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         return {"critic_result": result, "critic_input_fingerprints": fingerprints}
 
     def revise_gaps(state: ResearchWorkflowState) -> dict:
-        result, changed = _apply_revision_suggestions(
+        result, changed_gap_ids = _apply_revision_suggestions(
             state["gap_detection"], state["comparison"], state["critic_result"]
         )
-        if changed:
+        if changed_gap_ids:
             result.provenance = ArtifactProvenance(
                 stage="research_gap_detection",
                 input_fingerprints={"comparison": _model_fingerprint(state["comparison"])},
@@ -483,7 +614,8 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         return {
             "gap_detection": result,
             "revision_count": state.get("revision_count", 0) + 1,
-            "revision_applied": changed,
+            "revision_applied": bool(changed_gap_ids),
+            "revised_gap_ids": changed_gap_ids,
         }
 
     def generate_questions(state: ResearchWorkflowState) -> dict:
@@ -515,7 +647,7 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         return "validate" if state["gap_detection"].gaps else "stop_no_gaps"
 
     def route_after_validation(state: ResearchWorkflowState) -> str:
-        return "critic" if _sufficient_evidence(
+        return "critic" if _evidence_validation_complete(
             state["gap_detection"], state["evidence_validation"]
         ) else "stop_unsupported_evidence"
 
@@ -535,9 +667,17 @@ def build_research_graph(agents: WorkflowAgents | None = None):
             if state.get("revision_count", 0) < state.get("max_revisions", 2):
                 return "revise"
             return "stop_revision_limit"
-        if any(review.decision is CriticDecision.ACCEPT for review in critic.gap_reviews):
-            return "questions"
-        return "stop_rejected"
+        accepted = {review.gap_id for review in critic.gap_reviews
+                    if review.decision is CriticDecision.ACCEPT}
+        if not accepted:
+            return "stop_rejected"
+        # Critic-rejected gaps are terminal exclusions; they are recorded by the
+        # question agent and never block questions for accepted gaps. Every
+        # accepted gap must still be evidence-eligible, otherwise stop.
+        if not _questions_evidence_eligible(
+                state["gap_detection"], state["evidence_validation"], accepted):
+            return "stop_unsupported_evidence"
+        return "questions"
 
     def route_after_revision(state: ResearchWorkflowState) -> str:
         return "validate" if state.get("revision_applied") else "stop_no_applicable_revision"
@@ -555,7 +695,8 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         return stop(state, "No candidate research gaps were produced.")
 
     def stop_unsupported_evidence(state):
-        return stop(state, "Evidence validation was incomplete or did not fully support every candidate gap.")
+        return stop(state, "Evidence validation was incomplete, or a critic-accepted gap "
+                           "has no supported evidence.")
 
     def stop_incomplete_critic(state):
         return stop(state, "Critic review was incomplete or reported errors.")
@@ -568,6 +709,16 @@ def build_research_graph(agents: WorkflowAgents | None = None):
 
     def stop_no_applicable_revision(state):
         return stop(state, "Critic requested revision, but no safe evidence-grounded suggestion could be applied.")
+
+    def route_start(state: ResearchWorkflowState) -> str:
+        if state.get("resume_from_critic"):
+            critic = state["critic_result"]
+            if (critic.review_status is not CriticReviewStatus.COMPLETE
+                    or any(review.review_status is not CriticReviewStatus.COMPLETE
+                           for review in critic.gap_reviews)):
+                return "critic"
+            return route_after_critic(state)
+        return "critic" if state.get("resume_from_evidence") else "retrieve"
 
     graph = StateGraph(ResearchWorkflowState)
     graph.add_node("retrieve", retrieve)
@@ -590,7 +741,14 @@ def build_research_graph(agents: WorkflowAgents | None = None):
     ):
         graph.add_node(name, node)
 
-    graph.add_edge(START, "retrieve")
+    graph.add_conditional_edges(START, route_start, {
+        "retrieve": "retrieve", "critic": "critic",
+        "revise": "revise", "questions": "questions",
+        "stop_incomplete_critic": "stop_incomplete_critic",
+        "stop_revision_limit": "stop_revision_limit",
+        "stop_rejected": "stop_rejected",
+        "stop_unsupported_evidence": "stop_unsupported_evidence",
+    })
     graph.add_conditional_edges("retrieve", route_after_retrieval, {
         "analyze": "analyze", "stop_insufficient_retrieval": "stop_insufficient_retrieval",
     })
@@ -607,6 +765,7 @@ def build_research_graph(agents: WorkflowAgents | None = None):
     graph.add_conditional_edges("critic", route_after_critic, {
         "revise": "revise", "questions": "questions",
         "stop_incomplete_critic": "stop_incomplete_critic",
+        "stop_unsupported_evidence": "stop_unsupported_evidence",
         "stop_revision_limit": "stop_revision_limit", "stop_rejected": "stop_rejected",
     })
     graph.add_conditional_edges("revise", route_after_revision, {

@@ -12,8 +12,11 @@ import experiments.run_multi_paper_comparison as comparison_runner
 from src.agents import MultiPaperComparison, ResearchGapDetectionResult
 from src.agents.artifact_provenance import (
     ArtifactProvenance,
+    CANONICAL_JSON_SHA256,
+    RAW_BYTES_SHA256,
     fingerprint_json,
     require_fingerprint,
+    require_fingerprint_scheme,
 )
 
 
@@ -45,6 +48,23 @@ def test_canonical_input_fingerprint_is_deterministic_and_changes_with_input():
 def test_lineage_rejects_missing_and_stale_fingerprints(provenance, expected):
     with pytest.raises(ValueError, match=expected):
         require_fingerprint(provenance, "comparison", "current", "Gap artifact")
+
+
+@pytest.mark.parametrize("scheme", [RAW_BYTES_SHA256, CANONICAL_JSON_SHA256])
+def test_lineage_requires_the_named_fingerprint_scheme(scheme):
+    provenance = ArtifactProvenance(stage="gap", input_fingerprints={"comparison": "a" * 64},
+                                    fingerprint_schemes={"comparison": scheme})
+    require_fingerprint_scheme(provenance, "comparison", "Gap artifact", scheme)
+    with pytest.raises(ValueError, match="scheme"):
+        require_fingerprint_scheme(provenance, "comparison", "Gap artifact",
+                                   CANONICAL_JSON_SHA256 if scheme == RAW_BYTES_SHA256 else RAW_BYTES_SHA256)
+
+
+def test_lineage_rejects_unsupported_fingerprint_scheme():
+    provenance = ArtifactProvenance(stage="gap", input_fingerprints={"comparison": "a" * 64},
+                                    fingerprint_schemes={"comparison": "sha1"})
+    with pytest.raises(ValueError, match="unsupported"):
+        require_fingerprint_scheme(provenance, "comparison", "Gap artifact", RAW_BYTES_SHA256)
 
 
 def test_gap_runner_atomically_writes_comparison_fingerprint(tmp_path, monkeypatch):

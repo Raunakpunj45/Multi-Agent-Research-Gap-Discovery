@@ -10,6 +10,7 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from .artifact_provenance import ArtifactProvenance
+from .gemini_config import create_gemini_client
 from .cross_paper_comparison_agent import (
     EvidenceRef,
     MultiPaperComparison,
@@ -264,14 +265,7 @@ class ResearchGapDetectionAgent:
     @property
     def client(self):
         if self._client is None:
-            api_key = os.getenv("GEMINI_API_KEY")
-
-            if not api_key:
-                raise ValueError(
-                    "GEMINI_API_KEY not found in environment."
-                )
-
-            self._client = genai.Client(api_key=api_key)
+            self._client = create_gemini_client("GAP")
 
         return self._client
 
@@ -507,7 +501,10 @@ class ResearchGapDetectionAgent:
                     ),
                 )
 
-                return response.parsed
+                parsed = response.parsed
+                if parsed is not None and not isinstance(parsed, LLMGapDetection):
+                    parsed = LLMGapDetection.model_validate(parsed)
+                return parsed
 
             except Exception as error:
 

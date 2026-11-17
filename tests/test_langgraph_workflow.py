@@ -26,6 +26,8 @@ from src.agents.evidence_validation_agent import (
     EvidenceValidationStatus,
     GapValidation,
     GapValidationStatus,
+    GapSupportStatus,
+    JointGapAssessment,
 )
 from src.agents.paper_analysis_agent import PaperAnalysis, PaperAnalysisResult
 from src.agents.planner_agent import SearchPlan
@@ -117,6 +119,20 @@ def validation(status=GapValidationStatus.FULLY_SUPPORTED, paper_ids=PAPER_IDS):
         gap_validations=[GapValidation(
             gap_id="GAP-001", status=status, explanation="checked",
             evidence_validations=evidence,
+            joint_assessment=JointGapAssessment(
+                status={
+                    GapValidationStatus.FULLY_SUPPORTED: GapSupportStatus.FULLY_SUPPORTED,
+                    GapValidationStatus.PARTIALLY_SUPPORTED: GapSupportStatus.PARTIALLY_SUPPORTED,
+                    GapValidationStatus.UNSUPPORTED: GapSupportStatus.UNSUPPORTED,
+                }[status],
+                complete_gap_assessment="assessed", cross_paper_inference="inference",
+                evidence_summary_accuracy="accurate", research_opportunity="opportunity",
+                gap_origin="inferred", overgeneralization="limited", limitations="limited",
+                counterevidence="none", source_evidence=[
+                    EvidenceRef(paper_id=paper_id, chunk_ids=[f"{paper_id}-chunk"])
+                    for paper_id in paper_ids
+                ],
+            ),
         )],
         validation_counts={status.value: 1},
         evidence_status_counts={item.status.value: 1 for item in evidence},
@@ -336,12 +352,114 @@ def test_frozen_evaluation_identity_rejects_missing_duplicate_and_unexpected_pap
         validate_exact_paper_ids(observed, expected, "test artifact")
 
 
-def test_unsupported_evidence_stops_before_critic():
+def test_unsupported_evidence_reaches_critic_without_upgrading_assessments():
     agents = workflow_agents(evidence_status=GapValidationStatus.PARTIALLY_SUPPORTED)
     result = invoke(agents)
     assert result["workflow_status"] == "STOPPED"
-    assert "Evidence validation" in result["stop_reason"]
-    agents.critic.critique.assert_not_called()
+    agents.critic.critique.assert_called_once()
+    statuses = [item.status for item in result["evidence_validation"].gap_validations[0].evidence_validations]
+    assert statuses == [EvidenceValidationStatus.UNSUPPORTED] * 2
+    agents.research_questions.generate_questions.assert_not_called()
+
+
+def test_mixed_support_gaps_reach_critic_and_keep_independent_decisions():
+    agents = workflow_agents()
+    gaps = gap_result()
+    gap_items = [gaps.gaps[0].model_copy(update={"gap_id": gap_id})
+                 for gap_id in ("GAP-FULL", "GAP-PARTIAL", "GAP-UNSUPPORTED")]
+    gaps = gaps.model_copy(update={"gaps": gap_items})
+    agents.gap_detection.detect_gaps.return_value = gaps
+    support_cases = [
+        (GapValidationStatus.FULLY_SUPPORTED, EvidenceValidationStatus.SUPPORTED,
+         GapSupportStatus.FULLY_SUPPORTED),
+        (GapValidationStatus.PARTIALLY_SUPPORTED, EvidenceValidationStatus.PARTIALLY_SUPPORTED,
+         GapSupportStatus.PARTIALLY_SUPPORTED),
+        (GapValidationStatus.UNSUPPORTED, EvidenceValidationStatus.UNSUPPORTED,
+         GapSupportStatus.UNSUPPORTED),
+    ]
+    validations = []
+    for gap_item, (gap_status, item_status, joint_status) in zip(gap_items, support_cases):
+        base = validation(gap_status)
+        base_gap = base.gap_validations[0]
+        evidence = [item.model_copy(update={"status": item_status})
+                    for item in base_gap.evidence_validations]
+        joint = base_gap.joint_assessment.model_copy(update={"status": joint_status})
+        validations.append(base_gap.model_copy(update={
+            "gap_id": gap_item.gap_id, "evidence_validations": evidence,
+            "joint_assessment": joint,
+        }))
+    agents.evidence_validation.validate.return_value = EvidenceValidationResult(
+        research_topic="topic", paper_ids=PAPER_IDS, gap_validations=validations,
+        validation_counts={}, evidence_status_counts={},
+    )
+    decisions = [CriticDecision.ACCEPT, CriticDecision.ACCEPT, CriticDecision.REJECT]
+
+    def mixed_critique(_comparison, _gaps, _validation, input_fingerprints, **_kwargs):
+        return CriticResult(
+            research_topic="topic", review_status=CriticReviewStatus.COMPLETE,
+            gap_reviews=[GapCriticReview(
+                gap_id=gap_id, decision=decision, review_status=CriticReviewStatus.COMPLETE,
+                origin_assessment=GapOriginAssessment.INFERRED, origin_rationale="rationale",
+                reasoning="independent assessment",
+            ) for gap_id, decision in zip((g.gap_id for g in gap_items), decisions)],
+            input_fingerprints=input_fingerprints,
+        )
+
+    agents.critic.critique.side_effect = mixed_critique
+    result = invoke(agents)
+    # The rejected (and evidence-unsupported) gap is excluded; it no longer
+    # blocks questions for the two accepted, evidence-eligible gaps.
+    assert result["workflow_status"] == "COMPLETE"
+    assert [review.decision for review in result["critic_result"].gap_reviews] == decisions
+    assert [gap.status for gap in result["evidence_validation"].gap_validations] == [
+        GapValidationStatus.FULLY_SUPPORTED, GapValidationStatus.PARTIALLY_SUPPORTED,
+        GapValidationStatus.UNSUPPORTED,
+    ]
+    agents.research_questions.generate_questions.assert_called_once()
+    # Statuses are passed through unchanged: nothing is upgraded for routing.
+    passed_validation = agents.research_questions.generate_questions.call_args.args[2]
+    assert passed_validation.gap_validations[2].status is GapValidationStatus.UNSUPPORTED
+
+
+def test_all_rejected_gaps_stop_without_question_generation():
+    agents = workflow_agents(critic_decisions=[CriticDecision.REJECT])
+    result = invoke(agents)
+    assert result["workflow_status"] == "STOPPED"
+    assert result["stop_reason"] == "Critic rejected all candidate gaps."
+    agents.research_questions.generate_questions.assert_not_called()
+
+
+def test_accepted_gap_with_only_unsupported_evidence_still_stops():
+    agents = workflow_agents()
+    gaps = gap_result()
+    gap_items = [gaps.gaps[0].model_copy(update={"gap_id": gap_id})
+                 for gap_id in ("GAP-OK", "GAP-BAD")]
+    agents.gap_detection.detect_gaps.return_value = gaps.model_copy(update={"gaps": gap_items})
+    good = validation().gap_validations[0].model_copy(update={"gap_id": "GAP-OK"})
+    bad = validation(GapValidationStatus.UNSUPPORTED).gap_validations[0].model_copy(
+        update={"gap_id": "GAP-BAD"})
+    agents.evidence_validation.validate.return_value = EvidenceValidationResult(
+        research_topic="topic", paper_ids=PAPER_IDS, gap_validations=[good, bad],
+        validation_counts={}, evidence_status_counts={},
+    )
+
+    def accept_both(_c, _g, _v, input_fingerprints, **_kwargs):
+        return CriticResult(
+            research_topic="topic", review_status=CriticReviewStatus.COMPLETE,
+            gap_reviews=[GapCriticReview(
+                gap_id=gap_id, decision=CriticDecision.ACCEPT,
+                review_status=CriticReviewStatus.COMPLETE,
+                origin_assessment=GapOriginAssessment.INFERRED, origin_rationale="r",
+                reasoning="r",
+            ) for gap_id in ("GAP-OK", "GAP-BAD")],
+            input_fingerprints=input_fingerprints,
+        )
+
+    agents.critic.critique.side_effect = accept_both
+    result = invoke(agents)
+    assert result["workflow_status"] == "STOPPED"
+    assert "no supported evidence" in result["stop_reason"]
+    agents.research_questions.generate_questions.assert_not_called()
 
 
 def test_evidence_validation_errors_stop_even_if_gap_status_is_fully_supported():

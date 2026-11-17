@@ -9,6 +9,7 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from .artifact_provenance import ArtifactProvenance, fingerprint_json
+from .gemini_config import create_gemini_client
 from .paper_analysis_agent import PaperAnalysisResult, _is_retryable
 
 
@@ -237,14 +238,7 @@ class CrossPaperComparisonAgent:
     @property
     def client(self):
         if self._client is None:
-            api_key = os.getenv("GEMINI_API_KEY")
-
-            if not api_key:
-                raise ValueError(
-                    "GEMINI_API_KEY not found in environment."
-                )
-
-            self._client = genai.Client(api_key=api_key)
+            self._client = create_gemini_client("COMPARISON")
 
         return self._client
 
@@ -373,6 +367,15 @@ class CrossPaperComparisonAgent:
                 )
 
             paper_id = result.evidence[0].paper_id
+            owners = {chunk.paper_id for chunk in result.evidence}
+
+            if owners != {paper_id} or not paper_id or paper_id == "unknown":
+                # Labels map every excerpt to this paper, so a foreign or
+                # ownerless chunk would be misattributed downstream.
+                raise ValueError(
+                    f"Paper analysis #{paper_number} cites evidence from "
+                    f"multiple or unknown papers: {sorted(owners)}."
+                )
 
             if paper_id in index.paper_ids:
                 raise ValueError(

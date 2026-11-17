@@ -68,6 +68,24 @@ class StructuredGenerator(Protocol):
     def generate(self, prompt: str, response_schema: type[BaseModel]) -> BaseModel: ...
 
 
+def _gemini_compatible_schema(model: type[BaseModel]) -> dict:
+    """Return JSON Schema without keywords unsupported by Gemini response_schema."""
+    schema = model.model_json_schema()
+
+    def remove_unsupported(value):
+        if isinstance(value, dict):
+            value.pop("additionalProperties", None)
+            value.pop("additional_properties", None)
+            for nested in value.values():
+                remove_unsupported(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                remove_unsupported(nested)
+
+    remove_unsupported(schema)
+    return schema
+
+
 class GeminiStructuredGenerator:
     """Small provider adapter; construction makes no request."""
 
@@ -75,12 +93,10 @@ class GeminiStructuredGenerator:
         self.model = model
         self._client = client
         if self._client is None:
-            from google import genai
+            from src.agents.gemini_config import create_gemini_client
 
-            api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("GEMINI_API_KEY not found in environment.")
-            self._client = genai.Client(api_key=api_key)
+            # The standalone structured baseline belongs to the analysis stage.
+            self._client = create_gemini_client("ANALYSIS")
 
     def generate(self, prompt: str, response_schema: type[BaseModel]) -> BaseModel:
         from google.genai import types
@@ -91,18 +107,18 @@ class GeminiStructuredGenerator:
             config=types.GenerateContentConfig(
                 temperature=0,
                 response_mime_type="application/json",
-                response_schema=response_schema,
+                response_schema=_gemini_compatible_schema(response_schema),
             ),
         )
         parsed = getattr(response, "parsed", None)
         if isinstance(parsed, response_schema):
             return parsed
         if parsed is not None:
-            return response_schema.model_validate(parsed)
+            return response_schema.model_validate(parsed, strict=True)
         text = getattr(response, "text", None)
         if not text:
             raise ValueError("LLM returned no structured baseline output.")
-        return response_schema.model_validate_json(text)
+        return response_schema.model_validate_json(text, strict=True)
 
 
 @dataclass(frozen=True)
@@ -112,9 +128,14 @@ class EvaluationCorpus:
     prompts: dict[str, dict]
 
 
-def load_frozen_evaluation_corpus(manifest_path: Path) -> EvaluationCorpus:
-    """Load only the six finalized inclusion records and their shared prompts."""
-    root = Path(__file__).resolve().parents[2]
+def load_frozen_evaluation_corpus(manifest_path: Path, *,
+                                  repo_root: Path | None = None) -> EvaluationCorpus:
+    """Load only the six finalized inclusion records and their shared prompts.
+
+    ``repo_root`` is the directory manifest paper paths resolve against; it
+    defaults to this repository.
+    """
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
     manifest = load_dataset_manifest(manifest_path, root)
     configuration = manifest.header.evaluation_configuration or {}
     if configuration.get("frozen") is not True:

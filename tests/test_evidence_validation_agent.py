@@ -13,7 +13,7 @@ from src.agents import (
 )
 from src.agents.artifact_provenance import ArtifactProvenance
 from src.agents.evidence_validation_agent import (
-    EvidenceValidationResult, _ChunkAssessment, _ContradictionAdjudication, _JointAssessment,
+    EvidenceValidation, EvidenceValidationResult, GapValidation, _ChunkAssessment, _ContradictionAdjudication, _JointAssessment,
     _ProposedContradiction, _gemini_compatible_schema,
 )
 from src.agents.research_gap_detection_agent import (
@@ -262,6 +262,10 @@ def test_positive_subject_support_flag_requires_verbatim_chunk_quote():
     (GapSupportStatus.PARTIALLY_SUPPORTED, ["SUPPORTED", "SUPPORTED"], GapValidationStatus.PARTIALLY_SUPPORTED),
     (GapSupportStatus.UNSUPPORTED, ["UNSUPPORTED", "UNSUPPORTED"], GapValidationStatus.UNSUPPORTED),
     (GapSupportStatus.UNSUPPORTED, ["PARTIALLY_SUPPORTED", "UNSUPPORTED"], GapValidationStatus.PARTIALLY_SUPPORTED),
+    # Regression: a FULLY_SUPPORTED joint verdict is not enough on its own.
+    (GapSupportStatus.FULLY_SUPPORTED, ["SUPPORTED", "UNSUPPORTED"], GapValidationStatus.PARTIALLY_SUPPORTED),
+    (GapSupportStatus.FULLY_SUPPORTED, ["PARTIALLY_SUPPORTED", "PARTIALLY_SUPPORTED"], GapValidationStatus.PARTIALLY_SUPPORTED),
+    (GapSupportStatus.FULLY_SUPPORTED, ["SUPPORTED", "PARTIALLY_SUPPORTED"], GapValidationStatus.FULLY_SUPPORTED),
 ])
 def test_joint_assessment_determines_gap_status(joint, chunk_statuses, expected):
     out, _, _ = run(Client(chunk_statuses, joint_status=joint))
@@ -487,3 +491,24 @@ def test_targeted_joint_retry_failure_does_not_overwrite_saved_file(tmp_path, mo
     assert output_path.read_bytes() == original_bytes
     assert all(schema_name(schema) == _JointAssessment.__name__ for schema, _ in client.prompts)
     assert store.calls == ["a1", "b1"]
+
+
+def test_retry_failed_evidence_retries_only_error_items_and_preserves_success():
+    target = gap(gap_id="GAP-004")
+    client = Client(chunk_statuses=["UNSUPPORTED"], joint_status=GapSupportStatus.PARTIALLY_SUPPORTED)
+    store = Store()
+    agent = EvidenceValidationAgent(vector_store=store, client=client)
+    prior = EvidenceValidation(
+        paper_id="paper-A", chunk_id="a1", status=EvidenceValidationStatus.UNSUPPORTED,
+        findings='{"prior":"unchanged"}',
+    )
+    failed = EvidenceValidation(paper_id="paper-B", chunk_id="b1", status=None,
+                                findings="Semantic assessment was unavailable.",
+                                assessment_error="temporary failure")
+    saved = GapValidation(gap_id="GAP-004", status=GapValidationStatus.VALIDATION_INCOMPLETE,
+                          explanation="incomplete", evidence_validations=[prior, failed])
+    retried = agent.retry_failed_evidence(target, saved)
+    assert retried.evidence_validations[0] == prior
+    assert retried.evidence_validations[1].status is EvidenceValidationStatus.UNSUPPORTED
+    assert [schema_name(schema) for schema, _ in client.prompts] == [_ChunkAssessment.__name__, _JointAssessment.__name__]
+    assert retried.status is GapValidationStatus.PARTIALLY_SUPPORTED

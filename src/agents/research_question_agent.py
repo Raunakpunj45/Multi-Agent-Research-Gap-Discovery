@@ -15,6 +15,8 @@ from .critic_agent import (
     CriticDecision,
     CriticResult,
     CriticReviewStatus,
+    _is_daily_quota_exhaustion,
+    _provider_retry_after,
 )
 from .cross_paper_comparison_agent import EvidenceRef
 from .evidence_validation_agent import (
@@ -23,6 +25,7 @@ from .evidence_validation_agent import (
     GapSupportStatus,
     GapValidationStatus,
 )
+from .gemini_config import create_gemini_client
 from .paper_analysis_agent import _is_retryable
 from .research_gap_detection_agent import ResearchGap, ResearchGapDetectionResult
 
@@ -101,7 +104,13 @@ class ResearchQuestionResult(BaseModel):
     research_topic: str | None = None
     generation_status: GenerationStatus
     gap_results: list[GapResearchQuestions] = Field(default_factory=list)
+    # Gaps that could not be generated (failure, missing data, unresolved
+    # critic decision). Any entry here makes the result INCOMPLETE.
     skipped_gaps: list[SkippedGap] = Field(default_factory=list)
+    # Gaps deliberately removed by a complete critic REJECT decision. They are
+    # terminal decisions, not generation failures, so they do not by themselves
+    # make the result INCOMPLETE. Defaults to empty for older artifacts.
+    excluded_gaps: list[SkippedGap] = Field(default_factory=list)
     missing_inputs: list[str] = Field(default_factory=list)
     caveats: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
@@ -163,14 +172,12 @@ class ResearchQuestionAgent:
         self.max_retries = max_retries
         self.base_backoff_seconds = base_backoff_seconds
         self.max_backoff_seconds = max_backoff_seconds
+        self._daily_quota_exhausted = False
 
     @property
     def client(self):
         if self._client is None:
-            api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("GEMINI_API_KEY not found in environment.")
-            self._client = genai.Client(api_key=api_key)
+            self._client = create_gemini_client("QUESTION")
         return self._client
 
     def generate_questions(self, critic_result: CriticResult | None,
@@ -250,11 +257,21 @@ class ResearchQuestionAgent:
         validation_by_id = {item.gap_id: item for item in evidence_validation.gap_validations}
         gap_results = []
         skipped = []
+        excluded = []
         errors = []
+        self._daily_quota_exhausted = False
 
         for gap in gap_detection.gaps:
             review = review_by_id[gap.gap_id]
             validation = validation_by_id[gap.gap_id]
+            if (review.decision is CriticDecision.REJECT
+                    and review.review_status is CriticReviewStatus.COMPLETE):
+                excluded.append(SkippedGap(
+                    gap_id=gap.gap_id,
+                    reason=("Excluded by a complete critic REJECT decision; no "
+                            "questions or hypotheses are generated for a rejected gap."),
+                ))
+                continue
             if not (review.decision is CriticDecision.ACCEPT
                     and review.review_status is CriticReviewStatus.COMPLETE):
                 skipped.append(SkippedGap(
@@ -287,6 +304,13 @@ class ResearchQuestionAgent:
                 ))
                 continue
 
+            if self._daily_quota_exhausted:
+                failure = ("Model assessment not attempted: daily API quota was "
+                           "exhausted earlier in this run (HTTP 429).")
+                errors.append(f"{gap.gap_id}: {failure}")
+                skipped.append(SkippedGap(gap_id=gap.gap_id, reason=failure))
+                continue
+
             result, failure = self._generate_gap(gap, validation, review)
             if failure:
                 errors.append(f"{gap.gap_id}: {failure}")
@@ -294,11 +318,21 @@ class ResearchQuestionAgent:
             else:
                 gap_results.append(result)
 
-        complete = not errors and not skipped
+        # Rejected gaps are terminal decisions, but a run in which every gap was
+        # rejected produced no usable questions and is therefore not complete.
+        complete = (not errors and not skipped
+                    and (bool(gap_results) or not gap_detection.gaps))
         caveats = [
             "Research questions and hypotheses are proposals based only on the supplied "
             "evidence; they do not establish global novelty.",
         ]
+        if excluded:
+            caveats.append(
+                f"{len(excluded)} gap(s) were excluded by critic REJECT decisions and "
+                "are listed in excluded_gaps."
+            )
+        if not gap_results and not skipped and not errors:
+            caveats.append("No critic-accepted gap was available for question generation.")
         if not complete:
             caveats.append(
                 "INCOMPLETE PARTIAL GENERATION: this output is not a final report; "
@@ -310,6 +344,7 @@ class ResearchQuestionAgent:
                                else GenerationStatus.INCOMPLETE),
             gap_results=gap_results,
             skipped_gaps=skipped,
+            excluded_gaps=excluded,
             caveats=caveats,
             errors=errors,
         )
@@ -391,10 +426,15 @@ class ResearchQuestionAgent:
 
         supported_papers = {item.paper_id for item in evidence
                             if item.status is EvidenceValidationStatus.SUPPORTED}
+        # A hypothesis needs the complete gap to be fully supported, no cited
+        # chunk contradicting its attributed contribution (UNSUPPORTED), and
+        # SUPPORTED findings from at least two independent papers.
         hypothesis_sufficient = (
             validation.status is GapValidationStatus.FULLY_SUPPORTED
             and validation.joint_assessment is not None
             and validation.joint_assessment.status is GapSupportStatus.FULLY_SUPPORTED
+            and not any(item.status is EvidenceValidationStatus.UNSUPPORTED
+                        for item in validation.evidence_validations)
             and len(supported_papers) >= 2
         )
         contents = self._build_contents(gap, validation, evidence, labels,
@@ -552,6 +592,8 @@ class ResearchQuestionAgent:
                 generation_status=GenerationStatus.COMPLETE,
             ), None
         except Exception as error:
+            if _is_daily_quota_exhaustion(error):
+                self._daily_quota_exhausted = True
             return None, _safe_generation_error(error)
 
     @staticmethod
@@ -988,10 +1030,21 @@ class ResearchQuestionAgent:
                 return (response.parsed if isinstance(response.parsed, _LLMQuestionSet)
                         else _LLMQuestionSet.model_validate(response.parsed))
             except Exception as error:
-                if attempt == self.max_retries or not _is_retryable(error):
+                # Daily quota exhaustion cannot clear within this run: retrying
+                # only consumes more requests, so fail this gap immediately.
+                if (_is_daily_quota_exhaustion(error)
+                        or attempt == self.max_retries or not _is_retryable(error)):
                     raise
-                delay = min(self.base_backoff_seconds * (2 ** (attempt - 1)),
-                            self.max_backoff_seconds)
+                provider_delay = _provider_retry_after(error)
+                if provider_delay is not None:
+                    # Never retry before the provider's requested delay; fail
+                    # closed instead of waiting longer than the configured bound.
+                    if provider_delay > self.max_backoff_seconds:
+                        raise
+                    delay = provider_delay
+                else:
+                    delay = min(self.base_backoff_seconds * (2 ** (attempt - 1)),
+                                self.max_backoff_seconds)
                 time.sleep(delay)
         raise RuntimeError("Research Question Agent exhausted retries without a result.")
 

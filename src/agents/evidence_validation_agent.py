@@ -10,10 +10,15 @@ from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .artifact_provenance import ArtifactProvenance
+from .gemini_config import create_gemini_client
 from src.embeddings import LocalEmbeddingModel
 from src.vectorstore import ChromaVectorStore
 from .cross_paper_comparison_agent import EvidenceRef
-from .paper_analysis_agent import _is_retryable
+from .paper_analysis_agent import (
+    DAILY_QUOTA_NOT_ATTEMPTED,
+    _is_daily_quota_exhaustion,
+    _is_retryable,
+)
 from .research_gap_detection_agent import ResearchGap, ResearchGapDetectionResult
 
 load_dotenv()
@@ -284,19 +289,20 @@ class EvidenceValidationAgent:
         self.max_retries = max_retries
         self.base_backoff_seconds = base_backoff_seconds
         self.max_backoff_seconds = max_backoff_seconds
+        # Set when a daily quota 429 is seen; later assessments in the same
+        # validate/retry call are recorded as failed without being sent.
+        self._daily_quota_exhausted = False
 
     @property
     def client(self):
         if self._client is None:
-            api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("GEMINI_API_KEY not found in environment.")
-            self._client = genai.Client(api_key=api_key)
+            self._client = create_gemini_client("VALIDATION")
         return self._client
 
     def validate(self, result: ResearchGapDetectionResult) -> EvidenceValidationResult:
         if not isinstance(result, ResearchGapDetectionResult):
             raise TypeError("validate expects a ResearchGapDetectionResult.")
+        self._daily_quota_exhausted = False
         validations, retrieval_failures, semantic_failures = [], [], []
         for gap in result.gaps:
             validations.append(self._validate_gap(
@@ -454,12 +460,24 @@ class EvidenceValidationAgent:
             item.status in (None, EvidenceValidationStatus.NOT_FOUND, EvidenceValidationStatus.MISMATCHED)
             for item in evidence_validations
         )
+        # Full support needs the joint assessment AND paper-level evidence that
+        # backs it: at least one cited chunk fully supports its attributed
+        # contribution and no cited chunk is UNSUPPORTED (a misattributed source
+        # cannot be part of a fully supported gap).
+        any_supported_item = any(
+            item.status is EvidenceValidationStatus.SUPPORTED for item in evidence_validations
+        )
+        any_unsupported_item = any(
+            item.status is EvidenceValidationStatus.UNSUPPORTED for item in evidence_validations
+        )
         if failed_item or joint is None:
             status = GapValidationStatus.VALIDATION_INCOMPLETE
             explanation = "At least one referenced chunk or the joint assessment could not be fully validated."
-        elif joint.status is GapSupportStatus.FULLY_SUPPORTED and not any(c.unresolved for c in contradictions):
+        elif (joint.status is GapSupportStatus.FULLY_SUPPORTED
+              and not any(c.unresolved for c in contradictions)
+              and any_supported_item and not any_unsupported_item):
             status = GapValidationStatus.FULLY_SUPPORTED
-            explanation = "The joint assessment supports the complete gap; all referenced evidence was assessed and no unresolved contradiction remains."
+            explanation = "The joint assessment supports the complete gap; all referenced evidence was assessed, at least one chunk fully supports its attributed contribution, no cited chunk is unsupported, and no unresolved contradiction remains."
         elif joint.status is GapSupportStatus.UNSUPPORTED and not any(
             item.status in (EvidenceValidationStatus.SUPPORTED, EvidenceValidationStatus.PARTIALLY_SUPPORTED)
             for item in evidence_validations
@@ -491,6 +509,7 @@ class EvidenceValidationAgent:
         Successful individual assessments are required and are never called again.
         Chunk text is re-read by exact ID because it is not stored in the JSON.
         """
+        self._daily_quota_exhausted = False
         if gap.gap_id != saved.gap_id:
             raise ValueError("Gap definition and saved validation IDs do not match.")
         if saved.joint_assessment is not None:
@@ -529,6 +548,49 @@ class EvidenceValidationAgent:
         joint = self._validate_joint(candidate, verified_chunks)
         return self._build_gap_validation(gap.gap_id, saved.evidence_validations,
                                           joint, None, joint.contradictions)
+
+    def retry_failed_evidence(self, gap: ResearchGap, saved: GapValidation) -> GapValidation:
+        """Retry only absent/failed chunk assessments, then recompute the joint result."""
+        self._daily_quota_exhausted = False
+        if gap.gap_id != saved.gap_id:
+            raise ValueError("Gap definition and saved validation IDs do not match.")
+        expected = [(ref.paper_id, chunk_id) for ref in gap.supporting_evidence
+                    for chunk_id in ref.chunk_ids]
+        existing = [(item.paper_id, item.chunk_id) for item in saved.evidence_validations]
+        if len(existing) != len(set(existing)) or set(existing) - set(expected):
+            raise ValueError("Saved individual assessments contain duplicate or unexpected references.")
+        by_key = {(item.paper_id, item.chunk_id): item for item in saved.evidence_validations}
+        labels = {pid: f"P{i}" for i, pid in enumerate(dict.fromkeys(pid for pid, _ in expected), 1)}
+        verified: list[tuple[str, str, str]] = []
+        updated = dict(by_key)
+        for paper_id, chunk_id in expected:
+            old = by_key.get((paper_id, chunk_id))
+            failed = old is None or old.status is None or old.assessment_error is not None or old.retrieval_error is not None or old.status in (EvidenceValidationStatus.NOT_FOUND, EvidenceValidationStatus.MISMATCHED)
+            retrieved = self.vector_store.get_chunks_by_ids([chunk_id])
+            chunk = next((item for item in retrieved.chunks if item.get("chunk_id") == chunk_id), None)
+            if chunk is None:
+                raise ValueError(f"Exact chunk ID was not found during retry: {chunk_id}")
+            metadata = chunk.get("metadata") or {}
+            if metadata.get("chunk_id") != chunk_id or metadata.get("paper_id") != paper_id:
+                raise ValueError(f"Stored chunk ownership mismatch for {paper_id}/{chunk_id}.")
+            text = chunk["text"]
+            verified.append((paper_id, chunk_id, text))
+            if not failed:
+                continue
+            assessment = self._assess_chunk(gap, paper_id, chunk_id, labels.get(paper_id, "unknown"), text)
+            flags = self._verified_subject_flags(assessment, text)
+            finding_record = assessment.model_dump()
+            finding_record.update(flags)
+            updated[(paper_id, chunk_id)] = EvidenceValidation(
+                paper_id=paper_id, chunk_id=chunk_id,
+                status=EvidenceValidationStatus(assessment.status.upper()),
+                findings=json.dumps(finding_record, ensure_ascii=False), **flags,
+                claim_evidence_alignment=assessment.claim_evidence_alignment,
+                evidence_summary_accuracy=assessment.evidence_summary_accuracy,
+            )
+        items = [updated[key] for key in expected]
+        joint = self._validate_joint(self._assess_joint(gap, verified), verified)
+        return self._build_gap_validation(gap.gap_id, items, joint, None, joint.contradictions)
 
     def _assess_chunk(self, gap: ResearchGap, paper_id: str, chunk_id: str, paper_label: str,
                       text: str) -> _ChunkAssessment:
@@ -626,6 +688,8 @@ class EvidenceValidationAgent:
         return normalize(quote) in normalize(text)
 
     def _generate(self, contents: str, instruction: str, schema):
+        if self._daily_quota_exhausted:
+            raise RuntimeError(DAILY_QUOTA_NOT_ATTEMPTED)
         for attempt in range(1, self.max_retries + 1):
             try:
                 response = self.client.models.generate_content(
@@ -644,6 +708,9 @@ class EvidenceValidationAgent:
                 # but its response is always checked against the full local model.
                 return schema.model_validate(response.parsed, strict=True)
             except Exception as error:
+                if _is_daily_quota_exhaustion(error):
+                    self._daily_quota_exhausted = True
+                    raise
                 if attempt == self.max_retries or not _is_retryable(error):
                     raise
                 wait = min(self.base_backoff_seconds * 2 ** (attempt - 1), self.max_backoff_seconds)

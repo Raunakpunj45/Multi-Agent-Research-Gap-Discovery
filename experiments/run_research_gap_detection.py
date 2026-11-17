@@ -15,11 +15,12 @@ import hashlib
 import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
+
+from src.agents.artifact_io import write_text_preserving_previous
 
 from pydantic import ValidationError
 
@@ -144,21 +145,11 @@ def main() -> None:
         stage="research_gap_detection",
         input_fingerprints={"comparison": hashlib.sha256(comparison_bytes).hexdigest()},
     )
-    temp_name = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=OUTPUT_PATH.parent,
-            prefix=f".{OUTPUT_PATH.name}.", suffix=".tmp", delete=False,
-        ) as temp_file:
-            temp_name = temp_file.name
-            temp_file.write(result.model_dump_json(indent=2))
-            temp_file.write("\n")
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_name, OUTPUT_PATH)
-    finally:
-        if temp_name and os.path.exists(temp_name):
-            os.unlink(temp_name)
+    archived = write_text_preserving_previous(
+        OUTPUT_PATH, result.model_dump_json(indent=2) + "\n",
+    )
+    if archived is not None:
+        print(f"Previous output preserved: {archived}")
     print(f"\nSaved: {OUTPUT_PATH}")
 
 

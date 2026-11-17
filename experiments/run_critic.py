@@ -8,17 +8,19 @@ import hashlib
 import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
+
+from src.agents.artifact_io import write_text_preserving_previous
 
 from pydantic import ValidationError
 
 from src.agents import (
     CriticAgent,
     CriticResult,
+    CriticReviewStatus,
     EvidenceValidationResult,
     MultiPaperComparison,
     ResearchGapDetectionResult,
@@ -119,6 +121,8 @@ def main() -> None:
     ) if error]
     if load_errors:
         result.errors.extend(load_errors)
+        # Input loading or lineage failures can never yield a complete review.
+        result.review_status = CriticReviewStatus.INCOMPLETE
 
     for review in result.gap_reviews:
         print(f"{review.gap_id}: {review.decision.value} ({review.review_status.value})")
@@ -135,22 +139,11 @@ def main() -> None:
     for error in result.errors:
         print(f"  error: {error}")
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    temp_name = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=args.output.parent,
-            prefix=f".{args.output.name}.", suffix=".tmp", delete=False,
-        ) as temp_file:
-            temp_name = temp_file.name
-            temp_file.write(result.model_dump_json(indent=2))
-            temp_file.write("\n")
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_name, args.output)
-    finally:
-        if temp_name and os.path.exists(temp_name):
-            os.unlink(temp_name)
+    archived = write_text_preserving_previous(
+        args.output, result.model_dump_json(indent=2) + "\n",
+    )
+    if archived is not None:
+        print(f"Previous output preserved: {archived}")
     print(f"Saved: {args.output}")
     if (result.review_status.value == "INCOMPLETE"
             or any(review.review_status.value == "INCOMPLETE"

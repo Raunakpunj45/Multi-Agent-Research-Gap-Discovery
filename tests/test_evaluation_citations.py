@@ -1,15 +1,10 @@
 import json
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from src.evaluation.citations import build_chunk_ownership_index, write_chunk_ownership_index
 from src.evaluation.runner import load_dataset_manifest
-
-
-ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "data" / "evaluation" / "dataset_manifest.jsonl"
 
 
 class FakeCollection:
@@ -41,8 +36,8 @@ def install_fake_chroma(monkeypatch, collection):
     )
 
 
-def rows_for_included():
-    manifest = load_dataset_manifest(MANIFEST, ROOT)
+def rows_for_included(corpus):
+    manifest = load_dataset_manifest(corpus.manifest, corpus.root)
     from src.processing import PDFExtractor, TextChunker, TextCleaner
     import hashlib
 
@@ -50,7 +45,7 @@ def rows_for_included():
     for paper in manifest.papers:
         if paper.inclusion_decision["decision"] != "INCLUDE_IN_PRIMARY_EVALUATION":
             continue
-        text = TextCleaner().clean(PDFExtractor().extract_text(ROOT / paper.relative_path))
+        text = TextCleaner().clean(PDFExtractor().extract_text(corpus.root / paper.relative_path))
         for chunk in TextChunker().chunk(text, paper.paper_id):
             rows.append((chunk.chunk_id, {
                 "paper_id": paper.paper_id,
@@ -60,13 +55,17 @@ def rows_for_included():
     return rows
 
 
-def test_builds_stable_ownership_index_from_existing_chroma_records(monkeypatch, tmp_path):
-    rows = rows_for_included()
+def test_builds_stable_ownership_index_from_existing_chroma_records(
+    evaluation_corpus, monkeypatch, tmp_path,
+):
+    rows = rows_for_included(evaluation_corpus)
     install_fake_chroma(monkeypatch, FakeCollection(rows))
     directory = tmp_path / "chroma"
     directory.mkdir()
 
-    index = build_chunk_ownership_index(MANIFEST, directory, page_size=2)
+    index = build_chunk_ownership_index(
+        evaluation_corpus.manifest, directory, page_size=2, repo_root=evaluation_corpus.root,
+    )
     output = write_chunk_ownership_index(index, tmp_path / "owners.json")
 
     assert len(index) > 6
@@ -74,16 +73,22 @@ def test_builds_stable_ownership_index_from_existing_chroma_records(monkeypatch,
     assert json.loads(output.read_text(encoding="utf-8")) == index
 
 
-def test_ownership_index_rejects_missing_paper_coverage_and_fabricated_rows(monkeypatch, tmp_path):
-    rows = rows_for_included()
+def test_ownership_index_rejects_missing_paper_coverage_and_fabricated_rows(
+    evaluation_corpus, monkeypatch, tmp_path,
+):
+    rows = rows_for_included(evaluation_corpus)
     install_fake_chroma(monkeypatch, FakeCollection(rows[:-1]))
     directory = tmp_path / "chroma"
     directory.mkdir()
     with pytest.raises(ValueError, match="Chroma is missing local evaluation chunks"):
-        build_chunk_ownership_index(MANIFEST, directory, page_size=2)
+        build_chunk_ownership_index(
+            evaluation_corpus.manifest, directory, page_size=2, repo_root=evaluation_corpus.root,
+        )
 
-    malformed = rows_for_included()
+    malformed = rows_for_included(evaluation_corpus)
     malformed[0] = (malformed[0][0], {"paper_id": malformed[0][1]["paper_id"], "chunk_id": "invented"})
     install_fake_chroma(monkeypatch, FakeCollection(malformed))
     with pytest.raises(ValueError, match="record ID and metadata chunk_id disagree"):
-        build_chunk_ownership_index(MANIFEST, directory, page_size=2)
+        build_chunk_ownership_index(
+            evaluation_corpus.manifest, directory, page_size=2, repo_root=evaluation_corpus.root,
+        )

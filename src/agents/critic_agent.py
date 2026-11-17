@@ -13,8 +13,13 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from .cross_paper_comparison_agent import EvidenceRef, MultiPaperComparison
+from .gemini_config import create_gemini_client
 from .evidence_validation_agent import EvidenceValidationResult
-from .paper_analysis_agent import _is_retryable
+from .paper_analysis_agent import (  # noqa: F401  (re-exported for callers)
+    _error_code,
+    _is_daily_quota_exhaustion,
+    _is_retryable,
+)
 from .research_gap_detection_agent import ResearchGap, ResearchGapDetectionResult
 
 load_dotenv()
@@ -146,31 +151,6 @@ def fingerprint_inputs(payloads: dict[str, bytes | None]) -> dict[str, str]:
     }
 
 
-def _error_code(error: Exception) -> int | None:
-    for candidate in (
-        getattr(error, "code", None),
-        getattr(error, "status_code", None),
-        getattr(getattr(error, "response", None), "status_code", None),
-    ):
-        try:
-            code = int(candidate)
-        except (TypeError, ValueError):
-            continue
-        if 400 <= code <= 599:
-            return code
-    match = re.search(r"\b(429|5\d{2})\b", str(error))
-    return int(match.group(1)) if match else None
-
-
-def _is_daily_quota_exhaustion(error: Exception) -> bool:
-    message = str(error).casefold()
-    return _error_code(error) == 429 and bool(re.search(
-        r"daily|per[ _-]?day|day[ _-]?quota|quota.{0,100}(?:day|daily)|"
-        r"(?:day|daily).{0,100}quota",
-        message,
-    ))
-
-
 def _provider_retry_after(error: Exception) -> float | None:
     """Read common HTTP and Google retry-delay fields without requiring a provider type."""
     for name in ("retry_after_seconds", "retry_after"):
@@ -271,10 +251,7 @@ class CriticAgent:
     @property
     def client(self):
         if self._client is None:
-            api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("GEMINI_API_KEY not found in environment.")
-            self._client = genai.Client(api_key=api_key)
+            self._client = create_gemini_client("CRITIC")
         return self._client
 
     def critique(self, comparison: MultiPaperComparison | None,
