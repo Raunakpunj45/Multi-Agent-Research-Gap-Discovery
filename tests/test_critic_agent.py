@@ -90,8 +90,10 @@ def validation(gap_id="GAP-001", status=GapValidationStatus.FULLY_SUPPORTED):
         gap_validations=[GapValidation(
             gap_id=gap_id, status=status, explanation="Evidence checked.",
             evidence_validations=[
-                {"paper_id": P1, "chunk_id": C1, "status": "SUPPORTED", "findings": "P1 supports its contribution."},
-                {"paper_id": P2, "chunk_id": C2, "status": "SUPPORTED", "findings": "P2 supports its contribution."},
+                {"paper_id": P1, "chunk_id": C1, "status": "SUPPORTED", "findings": "P1 supports its contribution.",
+                 "supported_contribution_quote": "P1 reports a small evaluation"},
+                {"paper_id": P2, "chunk_id": C2, "status": "SUPPORTED", "findings": "P2 supports its contribution.",
+                 "supported_contribution_quote": "P2 reports a small evaluation"},
             ], joint_assessment=joint,
         )],
         validation_counts={status.value: 1}, evidence_status_counts={"SUPPORTED": 2},
@@ -148,7 +150,7 @@ class SequencedClient:
 
 def test_complete_review_maps_evidence_labels_to_original_ids_and_bounds_novelty():
     client = FakeClient(llm_review())
-    result = CriticAgent(client=client).critique(comparison(), gap_result(), validation())
+    result = CriticAgent(review_mode="auto", client=client).critique(comparison(), gap_result(), validation())
 
     review = result.gap_reviews[0]
     assert result.review_status is CriticReviewStatus.COMPLETE
@@ -163,7 +165,7 @@ def test_complete_review_maps_evidence_labels_to_original_ids_and_bounds_novelty
 
 def test_author_stated_origin_is_returned_as_a_distinct_classification():
     client = FakeClient(llm_review(origin=GapOriginAssessment.AUTHOR_STATED))
-    result = CriticAgent(client=client).critique(
+    result = CriticAgent(review_mode="auto", client=client).critique(
         comparison(), gap_result([research_gap(GapOrigin.EXPLICIT)]), validation()
     )
     assert result.gap_reviews[0].origin_assessment is GapOriginAssessment.AUTHOR_STATED
@@ -171,7 +173,7 @@ def test_author_stated_origin_is_returned_as_a_distinct_classification():
 
 def test_missing_inputs_return_incomplete_without_calling_gemini():
     client = FakeClient(llm_review())
-    result = CriticAgent(client=client).critique(None, gap_result(), validation())
+    result = CriticAgent(review_mode="auto", client=client).critique(None, gap_result(), validation())
     assert result.review_status is CriticReviewStatus.INCOMPLETE
     assert result.missing_inputs == ["cross-paper comparison output"]
     assert result.gap_reviews[0].decision is CriticDecision.REVISE
@@ -182,7 +184,7 @@ def test_input_reference_mismatch_stops_before_gemini():
     bad_validation = validation()
     bad_validation.gap_validations[0].evidence_validations.pop()
     client = FakeClient(llm_review())
-    result = CriticAgent(client=client).critique(comparison(), gap_result(), bad_validation)
+    result = CriticAgent(review_mode="auto", client=client).critique(comparison(), gap_result(), bad_validation)
     assert result.review_status is CriticReviewStatus.INCOMPLETE
     assert "references do not match" in result.errors[0]
     assert not client.calls
@@ -194,7 +196,7 @@ def test_model_failure_returns_safe_incomplete_reviews():
 
     raw_details = "private retryAfter=48624s response_payload=SECRET_PROVIDER_BODY"
     client = FakeClient(error=ProviderError(raw_details))
-    result = CriticAgent(client=client, max_retries=1).critique(
+    result = CriticAgent(review_mode="auto", client=client, max_retries=1).critique(
         comparison(), gap_result(), validation()
     )
     assert result.review_status is CriticReviewStatus.INCOMPLETE
@@ -227,7 +229,7 @@ def test_daily_quota_exhaustion_stops_retries_and_later_gap_calls():
     )
     client = FakeClient(error=daily_error)
 
-    result = CriticAgent(client=client, max_retries=5).critique(
+    result = CriticAgent(review_mode="auto", client=client, max_retries=5).critique(
         comparison(), gaps, evidence,
     )
 
@@ -248,7 +250,7 @@ def test_transient_rate_limit_retries_using_provider_retry_after(monkeypatch):
     sleeps = []
     monkeypatch.setattr("src.agents.critic_agent.time.sleep", sleeps.append)
     client = SequencedClient([ProviderError(), llm_review()])
-    agent = CriticAgent(client=client, max_retries=3, max_backoff_seconds=5)
+    agent = CriticAgent(review_mode="auto", client=client, max_retries=3, max_backoff_seconds=5)
 
     parsed = agent._generate("prompt")
 
@@ -268,7 +270,7 @@ def test_transient_rate_limit_reads_google_retry_info_details(monkeypatch):
     sleeps = []
     monkeypatch.setattr("src.agents.critic_agent.time.sleep", sleeps.append)
     client = SequencedClient([ProviderError("rate limit"), llm_review()])
-    agent = CriticAgent(client=client, max_retries=3, max_backoff_seconds=5)
+    agent = CriticAgent(review_mode="auto", client=client, max_retries=3, max_backoff_seconds=5)
 
     agent._generate("prompt")
 
@@ -283,7 +285,7 @@ def test_transient_rate_limit_without_guidance_uses_bounded_backoff(monkeypatch)
     sleeps = []
     monkeypatch.setattr("src.agents.critic_agent.time.sleep", sleeps.append)
     client = SequencedClient([ProviderError("rate limit"), ProviderError("rate limit"), llm_review()])
-    agent = CriticAgent(client=client, max_retries=3,
+    agent = CriticAgent(review_mode="auto", client=client, max_retries=3,
                         base_backoff_seconds=2, max_backoff_seconds=3)
 
     agent._generate("prompt")
@@ -312,7 +314,7 @@ def test_matching_successful_review_is_preserved_after_partial_failure():
         "gap_detection": "b" * 64,
         "evidence_validation": "c" * 64,
     }
-    previous = CriticAgent(client=FakeClient(llm_review())).critique(
+    previous = CriticAgent(review_mode="auto", client=FakeClient(llm_review())).critique(
         comparison(), gap_result(), validation(), input_fingerprints=fingerprints,
     )
     old_review = previous.gap_reviews[0].model_copy(update={"decision": CriticDecision.ACCEPT})
@@ -327,7 +329,7 @@ def test_matching_successful_review_is_preserved_after_partial_failure():
         validation_counts={"FULLY_SUPPORTED": 2}, evidence_status_counts={"SUPPORTED": 4},
     )
     client = SequencedClient([RuntimeError("temporary outage")])
-    result = CriticAgent(client=client, max_retries=1).critique(
+    result = CriticAgent(review_mode="auto", client=client, max_retries=1).critique(
         comparison(), current_gaps, current_validation,
         input_fingerprints=fingerprints, previous_result=previous,
     )
@@ -348,13 +350,13 @@ def test_stale_successful_review_is_not_preserved():
         "evidence_validation": "c" * 64,
     }
     current_fingerprints = dict(previous_fingerprints, evidence_validation="d" * 64)
-    previous = CriticAgent(client=FakeClient(llm_review())).critique(
+    previous = CriticAgent(review_mode="auto", client=FakeClient(llm_review())).critique(
         comparison(), gap_result(), validation(), input_fingerprints=previous_fingerprints,
     )
     previous = previous.model_copy(update={"gap_reviews": [previous.gap_reviews[0].model_copy(
         update={"decision": CriticDecision.ACCEPT})]})
     client = FakeClient(error=RuntimeError("temporary outage"))
-    failed = CriticAgent(client=client, max_retries=1).critique(
+    failed = CriticAgent(review_mode="auto", client=client, max_retries=1).critique(
         comparison(), gap_result(), validation(), input_fingerprints=current_fingerprints,
         previous_result=previous,
     )
@@ -368,7 +370,7 @@ def test_stale_successful_review_is_not_preserved():
 
 def test_invalid_evidence_labels_are_omitted_and_mark_review_incomplete():
     client = FakeClient(llm_review(evidence_labels=["P9-E99"]))
-    result = CriticAgent(client=client).critique(comparison(), gap_result(), validation())
+    result = CriticAgent(review_mode="auto", client=client).critique(comparison(), gap_result(), validation())
     review = result.gap_reviews[0]
     assert review.review_status is CriticReviewStatus.INCOMPLETE
     assert review.criticisms[0].source_evidence == []
@@ -382,7 +384,7 @@ def test_incomplete_evidence_validation_cannot_be_accepted():
         origin_rationale="The gap is inferred.", reasoning="Looks supported.",
     )
     client = FakeClient(_LLMCriticResult(gap_reviews=[accepted]))
-    result = CriticAgent(client=client).critique(
+    result = CriticAgent(review_mode="auto", client=client).critique(
         comparison(), gap_result(), validation(status=GapValidationStatus.VALIDATION_INCOMPLETE)
     )
     review = result.gap_reviews[0]
@@ -393,7 +395,7 @@ def test_incomplete_evidence_validation_cannot_be_accepted():
 
 def test_omitted_gap_review_becomes_explicitly_incomplete():
     client = FakeClient(_LLMCriticResult(gap_reviews=[]))
-    result = CriticAgent(client=client).critique(comparison(), gap_result(), validation())
+    result = CriticAgent(review_mode="auto", client=client).critique(comparison(), gap_result(), validation())
     assert result.review_status is CriticReviewStatus.INCOMPLETE
     assert result.gap_reviews[0].gap_id == "GAP-001"
     assert "omitted" in result.errors[0]
@@ -414,7 +416,7 @@ def test_partial_success_across_multiple_gaps_keeps_success_and_marks_failed_gap
     )
     client = SequencedClient([llm_review(), ProviderError("service unavailable")])
 
-    result = CriticAgent(client=client, max_retries=1).critique(
+    result = CriticAgent(review_mode="auto", client=client, max_retries=1).critique(
         comparison(), gaps, evidence,
     )
 
@@ -428,7 +430,7 @@ def test_partial_success_across_multiple_gaps_keeps_success_and_marks_failed_gap
 
 def test_no_candidate_gaps_completes_without_gemini():
     client = FakeClient()
-    result = CriticAgent(client=client).critique(
+    result = CriticAgent(review_mode="auto", client=client).critique(
         comparison(), gap_result([]), evidence_validation=validation()
     )
     assert result.review_status is CriticReviewStatus.COMPLETE

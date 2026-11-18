@@ -95,6 +95,7 @@ class Client:
         self.fail_schema = fail_schema
         self.fail_error = fail_error
         self.adjudication = adjudication or _ContradictionAdjudication(
+            proposition_a_supported=True, proposition_b_supported=True,
             same_subject=True, substantively_incompatible=True,
             confidence="HIGH", explanation="The quoted positions directly conflict.")
         self.prompts = []
@@ -141,7 +142,7 @@ def contradiction(source_a="a1", quote_a="The method improved accuracy.",
 def run(client=None, store=None, gaps=None):
     client = client or Client()
     store = store or Store()
-    result = EvidenceValidationAgent(vector_store=store, client=client).validate(input_result(gaps))
+    result = EvidenceValidationAgent(mode="per_chunk", vector_store=store, client=client).validate(input_result(gaps))
     return result, client, store
 
 
@@ -165,22 +166,15 @@ def test_gemini_developer_schemas_omit_additional_properties_and_local_models_st
             response_mime_type="application/json", response_json_schema=schema,
         )
         assert config.response_json_schema == schema
-    quote_schema = schemas[0]["properties"]["subject_quotes"]
-    assert quote_schema["type"] == "object"
-    assert "supports_physics_informed_ml" in quote_schema["properties"]
 
     valid = {
         "status": "SUPPORTED", "attributed_contribution": "A contribution.",
         "claim_evidence_alignment": "Aligned.", "evidence_summary_accuracy": "Accurate.",
         "limitations": "Limited.", "explanation": "Supported.",
-        "subject_quotes": {"supports_physics_informed_ml": "exact phrase"},
     }
-    parsed = _ChunkAssessment.model_validate(valid, strict=True)
-    assert parsed.subject_quotes["supports_physics_informed_ml"] == "exact phrase"
+    _ChunkAssessment.model_validate(valid, strict=True)
     with pytest.raises(Exception):
         _ChunkAssessment.model_validate({**valid, "unexpected": "field"}, strict=True)
-    with pytest.raises(Exception):
-        _ChunkAssessment.model_validate({**valid, "subject_quotes": {"unknown_flag": "quote"}}, strict=True)
 
 
 def test_exact_gemini_additional_properties_api_error_fails_closed():
@@ -213,48 +207,36 @@ def test_chunk_assesses_only_its_paper_contribution_and_joint_receives_all_verif
     assert gap_result.status is GapValidationStatus.PARTIALLY_SUPPORTED
 
 
-def test_chunk_subject_mentions_are_structured_and_verified_against_exact_text():
-    records = {
-        "a1": {"chunk_id": "a1", "text": (
-            "LLM self-explanations may fail faithfulness checks."
-        ), "metadata": {"paper_id": "paper-A", "chunk_id": "a1"}},
-        "b1": {"chunk_id": "b1", "text": (
-            "Accurate model predictions do not establish causal relationships."
-        ), "metadata": {"paper_id": "paper-B", "chunk_id": "b1"}},
-    }
-    output, _, _ = run(store=Store(records=records))
-    first, second = output.gap_validations[0].evidence_validations
-    assert first.mentions_llm is True
-    assert first.mentions_faithfulness is True
-    assert second.mentions_llm is False
-    assert second.mentions_faithfulness is False
-    assert json.loads(first.findings)["mentions_llm"] is True
+def test_chunk_assessment_schema_has_no_topic_specific_flags():
+    """Validation is topic-neutral: no hardcoded subject flags reach the model."""
+    fields = set(_ChunkAssessment.model_fields)
+    assert not {name for name in fields
+                if name.startswith(("supports_", "mentions_")) or name == "subject_quotes"}
+    instruction = EvidenceValidationAgent.CHUNK_SYSTEM_INSTRUCTION.casefold()
+    for topic_word in ("physics", "causal", "faithfulness", "llm", "social"):
+        assert topic_word not in instruction
+    output, _, _ = run()
+    for item in output.gap_validations[0].evidence_validations:
+        assert item.mentions_llm is None and item.supports_causal_reasoning is None
+        assert "mentions_llm" not in json.loads(item.findings)
 
 
-def test_positive_subject_support_flag_requires_verbatim_chunk_quote():
+def test_supported_contribution_requires_verbatim_chunk_quote():
     assessment = _ChunkAssessment(
         status="SUPPORTED",
         attributed_contribution="Physics-informed ML is called for.",
         supported_contribution="Physics-informed ML is called for.",
-        supported_contribution_quote="physics-infused ML",
-        subject_quotes={"supports_physics_informed_ml": "physics-infused ML"},
-        supports_physics_informed_ml=True,
+        supported_contribution_quote="physics-infused   ML",
         claim_evidence_alignment="Exact source phrase supports this contribution.",
         evidence_summary_accuracy="Accurate.", limitations="None.", explanation="Supported.",
     )
-    flags = EvidenceValidationAgent._verified_subject_flags(
-        assessment, "The paper calls for physics-infused ML approaches."
-    )
-    assert flags["supports_physics_informed_ml"] is True
-    assert flags["supported_contribution"] == "Physics-informed ML is called for."
+    text = "The paper calls for physics-infused ML approaches."
+    verified = EvidenceValidationAgent._verified_contribution(assessment, text)
+    assert verified["supported_contribution"] == "Physics-informed ML is called for."
 
-    assessment.subject_quotes["supports_physics_informed_ml"] = "physics-informed methods"
     assessment.supported_contribution_quote = "physics-informed methods"
-    flags = EvidenceValidationAgent._verified_subject_flags(
-        assessment, "The paper calls for physics-infused ML approaches."
-    )
-    assert flags["supports_physics_informed_ml"] is False
-    assert flags["supported_contribution"] is None
+    verified = EvidenceValidationAgent._verified_contribution(assessment, text)
+    assert verified == {"supported_contribution": None, "supported_contribution_quote": None}
 
 
 @pytest.mark.parametrize("joint,chunk_statuses,expected", [
@@ -288,6 +270,7 @@ def test_unrelated_propositions_with_valid_quotes_are_rejected():
     unrelated.proposition_a = "The method improved accuracy."
     unrelated.proposition_b = "The paper used a sample of 30 participants."
     adjudication = _ContradictionAdjudication(
+        proposition_a_supported=True, proposition_b_supported=True,
         same_subject=False, substantively_incompatible=False,
         confidence="LOW", explanation="The statements concern different claims.")
     custom_store = Store({
@@ -373,7 +356,7 @@ def test_joint_assessment_failure_is_incomplete_and_gap_scoped():
 
 
 def test_empty_and_invalid_input():
-    agent = EvidenceValidationAgent(vector_store=Store(), client=Client())
+    agent = EvidenceValidationAgent(mode="per_chunk", vector_store=Store(), client=Client())
     assert agent.validate(input_result([])).gap_validations == []
     with pytest.raises(TypeError):
         agent.validate({})
@@ -390,7 +373,7 @@ def test_targeted_joint_retry_preserves_other_gap_and_skips_chunk_assessments(tm
         joint_status=GapSupportStatus.PARTIALLY_SUPPORTED,
     )
     store = Store()
-    agent = EvidenceValidationAgent(vector_store=store, client=client)
+    agent = EvidenceValidationAgent(mode="per_chunk", vector_store=store, client=client)
     original = agent.validate(detection)
     original_gaps = []
     for item in original.gap_validations:
@@ -450,7 +433,7 @@ def test_targeted_joint_retry_failure_does_not_overwrite_saved_file(tmp_path, mo
     detection = input_result([target])
     client = Client(chunk_statuses=["SUPPORTED"] * 2, fail_schema=_JointAssessment)
     store = Store()
-    agent = EvidenceValidationAgent(vector_store=store, client=client)
+    agent = EvidenceValidationAgent(mode="per_chunk", vector_store=store, client=client)
     original = agent.validate(detection)
     incomplete = original.gap_validations[0].model_copy(update={
         "status": GapValidationStatus.VALIDATION_INCOMPLETE,
@@ -497,7 +480,7 @@ def test_retry_failed_evidence_retries_only_error_items_and_preserves_success():
     target = gap(gap_id="GAP-004")
     client = Client(chunk_statuses=["UNSUPPORTED"], joint_status=GapSupportStatus.PARTIALLY_SUPPORTED)
     store = Store()
-    agent = EvidenceValidationAgent(vector_store=store, client=client)
+    agent = EvidenceValidationAgent(mode="per_chunk", vector_store=store, client=client)
     prior = EvidenceValidation(
         paper_id="paper-A", chunk_id="a1", status=EvidenceValidationStatus.UNSUPPORTED,
         findings='{"prior":"unchanged"}',

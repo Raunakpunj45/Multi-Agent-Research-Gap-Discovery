@@ -15,6 +15,8 @@ from src.evaluation.baselines import GeminiStructuredGenerator
 
 
 def test_all_six_agent_groups_use_their_assigned_key_and_owned_client(monkeypatch):
+    # Gemini is the optional provider; Groq is the default.
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
     monkeypatch.setattr(gemini_config, "load_dotenv", lambda: None)
     for env_name in gemini_config.LEGACY_GROUP_KEY_ENV.values():
         monkeypatch.setenv(env_name, "old-four-key-secret")

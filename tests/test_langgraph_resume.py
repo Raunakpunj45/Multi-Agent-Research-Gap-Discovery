@@ -66,7 +66,11 @@ def test_latest_mixed_critic_artifact_retries_only_incomplete_reviews_and_ignore
         "run_langgraph.py", "--resume-from-critic", str(source),
         "--output", str(output_base),
     ])
-    assert run_langgraph.main() == 0
+    # The mocked critic ACCEPTs every gap, but fixture GAP-001 is
+    # PARTIALLY_SUPPORTED and GAP-003/GAP-004 cite PARTIALLY_SUPPORTED chunks,
+    # so the strict acceptance rule stops the run (exit 1) without questions.
+    assert run_langgraph.main() == 1
+    agents.research_questions.generate_questions.assert_not_called()
     agents.critic.critique.assert_called_once()
     kwargs = agents.critic.critique.call_args.kwargs
     assert kwargs["previous_result"].input_fingerprints == prior.input_fingerprints
@@ -165,12 +169,17 @@ def test_resume_starts_at_critic_and_writes_unique_output(tmp_path, monkeypatch)
         "--resume-evidence-validation", str(evidence_path), "--output", str(output_base),
     ])
 
-    assert run_langgraph.main() == 0
+    # The resumed evidence is PARTIALLY_SUPPORTED, so the critic's ACCEPT is
+    # never effective: the run stops (exit 1) and no questions are generated.
+    assert run_langgraph.main() == 1
     outputs = list(tmp_path.glob("resumed-resume-*.json"))
     assert len(outputs) == 1
     saved = json.loads(outputs[0].read_text(encoding="utf-8"))
     assert saved["critic_input_fingerprints"] == fingerprints
     assert saved["evidence_validation"]["gap_validations"][0]["status"] == "PARTIALLY_SUPPORTED"
+    assert saved["workflow_status"] == "STOPPED"
+    assert "strict acceptance rule" in saved["stop_reason"]
+    agents.research_questions.generate_questions.assert_not_called()
     agents.retrieval.search.assert_not_called()
     agents.paper_analysis.analyze_paper.assert_not_called()
     agents.comparison.compare_many.assert_not_called()
@@ -285,14 +294,19 @@ def test_latest_saved_critic_revisions_revalidate_only_affected_gaps(
         "run_langgraph.py", "--resume-from-critic", str(source), "--output", str(output_base),
     ])
 
-    assert run_langgraph.main() == 0
+    # Only the revised gaps are revalidated, but the unrevised fixture GAP-003
+    # (ACCEPTED earlier while citing PARTIALLY_SUPPORTED chunks) fails the
+    # strict acceptance rule, so the run stops (exit 1) before questions.
+    assert run_langgraph.main() == 1
     assert evidence_calls == [revised_ids]
     assert len(revised_ids) == 2
     assert critic_agent.critique.call_count == 1
-    assert question_agent.generate_questions.call_count == 1
+    assert question_agent.generate_questions.call_count == 0
     outputs = list(tmp_path.glob("continued-PROMPT-001-*.json"))
     assert len(outputs) == 1
     saved = json.loads(outputs[0].read_text(encoding="utf-8"))
+    assert saved["workflow_status"] == "STOPPED"
+    assert "strict acceptance rule" in saved["stop_reason"]
     revised = {gap["gap_id"]: gap for gap in saved["gap_detection"]["gaps"]}
     for gap_id in revised_ids:
         assert revised[gap_id] != prior_gaps[gap_id]

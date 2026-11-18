@@ -30,7 +30,14 @@ class MultiSourceRetriever:
         self,
         query: str,
         max_results_per_source: int = 5,
+        apply_relevance_filter: bool = True,
     ) -> list[PaperRecord]:
+        """Search every source, deduplicate, and optionally filter lexically.
+
+        ``apply_relevance_filter=False`` returns every deduplicated result of
+        this query; the planner workflow uses it so candidates are judged once,
+        after aggregation, against the original topic rather than per query.
+        """
  
         all_papers = []
  
@@ -65,6 +72,10 @@ class MultiSourceRetriever:
             f"{len(unique_papers)} papers"
         )
  
+        if not apply_relevance_filter:
+            print("Per-query relevance filter: disabled (candidates are ranked later).")
+            return unique_papers
+
         relevant_papers = self.relevance_filter.filter(
             papers=unique_papers,
             query=query,

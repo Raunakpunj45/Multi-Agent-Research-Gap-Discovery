@@ -1,4 +1,7 @@
-"""Live multi-paper comparison (uses network + Gemini; not part of pytest).
+"""Live multi-paper comparison (network retrieval + LLM paper analysis; not part of pytest).
+
+The comparison itself is the deterministic evidence matrix (no LLM call) unless
+COMPARISON_MODE=llm selects the legacy LLM comparison.
 
 Run from the project root:
     python experiments/run_multi_paper_comparison.py "large language models scientific discovery" --max-papers 10
@@ -14,6 +17,7 @@ sys.path.insert(0, str(ROOT_DIR))
 from src.agents.artifact_io import write_text_preserving_previous
 
 from src.agents import PaperAnalysisPipeline
+from src.agents.evidence_matrix import EvidenceMatrixComparisonAgent, comparison_mode
 from src.agents.planner_retrieval_agent import PlannerRetrievalAgent
 from src.retrieval import MultiSourceRetriever
 
@@ -50,7 +54,10 @@ def main():
     candidates = [p for p in papers if p.pdf_url]
     print(f"\n{len(papers)} papers retrieved, {len(candidates)} with a PDF URL.")
 
-    comparison = PaperAnalysisPipeline().analyze_and_compare_papers(
+    pipeline = PaperAnalysisPipeline()
+    if comparison_mode() == "matrix":
+        pipeline.comparison_agent = EvidenceMatrixComparisonAgent()
+    comparison = pipeline.analyze_and_compare_papers(
         papers=candidates,
         analysis_query=ANALYSIS_QUERY,
         research_topic=args.topic,

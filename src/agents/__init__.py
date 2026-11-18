@@ -15,6 +15,13 @@ from .cross_paper_comparison_agent import (
     MultiPaperComparison,
     UnderexploredDirection,
 )
+from .evidence_matrix import EvidenceMatrixComparisonAgent
+from .evidence_matrix_models import (
+    ClusterMember,
+    EvidenceCluster,
+    EvidenceMatrix,
+    MatrixCell,
+)
 from .research_gap_detection_agent import (
     ExcludedGapCandidate,
     GapCategory,
@@ -71,6 +78,11 @@ __all__ = [
     "ConflictingFinding",
     "CrossPaperComparison",
     "CrossPaperComparisonAgent",
+    "EvidenceMatrixComparisonAgent",
+    "EvidenceMatrix",
+    "EvidenceCluster",
+    "ClusterMember",
+    "MatrixCell",
     "DimensionSummary",
     "EvidenceRef",
     "ExcludedPaper",

@@ -1,5 +1,6 @@
 from src.agents.planner_agent import PlannerAgent
-from src.retrieval import MultiSourceRetriever, PaperRecord
+from src.retrieval import MultiSourceRetriever, PaperDeduplicator, PaperRecord
+from src.retrieval.ranking import PaperRelevanceRanker
 
 
 class PlannerRetrievalAgent:
@@ -7,15 +8,34 @@ class PlannerRetrievalAgent:
         self,
         planner: PlannerAgent | None = None,
         retriever: MultiSourceRetriever | None = None,
+        ranker: PaperRelevanceRanker | None = None,
     ):
         self.planner = planner or PlannerAgent()
         self.retriever = retriever or MultiSourceRetriever()
+        self.ranker = ranker or PaperRelevanceRanker()
 
     def search(
         self,
         topic: str,
         max_results_per_source: int = 5,
+        with_relevance: bool = False,
     ) -> tuple:
+        """Plan, retrieve, deduplicate and rank candidates against ``topic``.
+
+        No lexical filter is applied per query: a relevant paper must not be
+        lost because one sub-query's words do not appear in its title or
+        abstract (title-only records, "LLM" vs "large language model"). Every
+        query's results are aggregated and deduplicated first, and every
+        candidate is then scored against the original topic; exclusion happens
+        only later, by the explicit relevance threshold, and is reported.
+
+        Papers are returned ranked by relevance to the ORIGINAL topic (score
+        descending, then retrieval order), so paper selection does not depend
+        on the order of sub-queries or sources. Returns ``(plan, papers)``, or
+        ``(plan, papers, scores)`` with ``with_relevance=True``, where
+        ``scores[i]`` is the relevance score of ``papers[i]``. Scores are kept
+        outside ``PaperRecord`` so saved paper records are unchanged.
+        """
 
         if not topic.strip():
             raise ValueError(
@@ -57,12 +77,13 @@ class PlannerRetrievalAgent:
             papers = self.retriever.search(
                 query=query,
                 max_results_per_source=max_results_per_source,
+                apply_relevance_filter=False,
             )
 
             all_papers.extend(papers)
 
             print(
-                f"Relevant papers returned: "
+                f"Candidates returned: "
                 f"{len(papers)}"
             )
 
@@ -75,40 +96,19 @@ class PlannerRetrievalAgent:
             f"deduplication: {len(unique_papers)}"
         )
 
-        return search_plan, unique_papers
+        ranked = self.ranker.rank(topic, unique_papers)
+        papers = [item.paper for item in ranked]
+        if with_relevance:
+            return search_plan, papers, [item.score for item in ranked]
+        return search_plan, papers
 
     @staticmethod
     def _deduplicate_results(
         papers: list[PaperRecord],
     ) -> list[PaperRecord]:
+        """Cross-query deduplication by normalized DOI or title, in first-seen order.
 
-        unique_papers = []
-        seen_keys = set()
-
-        for paper in papers:
-
-            if paper.doi:
-                key = (
-                    "doi",
-                    paper.doi.lower().strip()
-                )
-
-            elif paper.title:
-                key = (
-                    "title",
-                    paper.title.lower().strip()
-                )
-
-            else:
-                key = (
-                    "source_id",
-                    paper.source_id,
-                )
-
-            if key in seen_keys:
-                continue
-
-            seen_keys.add(key)
-            unique_papers.append(paper)
-
-        return unique_papers
+        Duplicates fill fields the kept record lacks (abstract, PDF URL, ...),
+        so a title-only record found again with an abstract is scored on it.
+        """
+        return PaperDeduplicator().deduplicate(papers)

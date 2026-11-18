@@ -2,6 +2,13 @@
 
 The graph owns routing and provenance handoffs only. All model-backed work is
 delegated to the existing agent implementations.
+
+Default path (sized for one Groq free-tier account):
+retrieve -> analyze (GPT-OSS-20B per paper) -> compare (deterministic evidence
+matrix, no LLM) -> detect_gaps (one GPT-OSS-120B request, at most 3 gaps) ->
+validate (deterministic checks, then one GPT-OSS-20B request per gap) ->
+critic (one GPT-OSS-120B ACCEPT/REJECT request per validated gap) ->
+questions (GPT-OSS-120B, critic-accepted gaps only). Revisions default to 0.
 """
 from __future__ import annotations
 
@@ -29,6 +36,8 @@ from src.agents.cross_paper_comparison_agent import (
     ExcludedPaper,
     MultiPaperComparison,
 )
+from src.agents.evidence_matrix import EvidenceMatrixComparisonAgent, comparison_mode
+from src.agents.gap_acceptance import acceptance_blockers
 from src.agents.evidence_validation_agent import (
     EvidenceValidationAgent,
     EvidenceValidationResult,
@@ -36,7 +45,11 @@ from src.agents.evidence_validation_agent import (
     GapSupportStatus,
     GapValidationStatus,
 )
-from src.agents.paper_analysis_agent import PaperAnalysisResult
+from src.agents.paper_analysis_agent import (
+    DAILY_QUOTA_NOT_ATTEMPTED,
+    PaperAnalysisResult,
+    _is_daily_quota_exhaustion,
+)
 from src.agents.paper_analysis_pipeline import PaperAnalysisPipeline
 from src.agents.planner_agent import SearchPlan
 from src.agents.planner_retrieval_agent import PlannerRetrievalAgent
@@ -51,8 +64,16 @@ from src.embeddings import LocalEmbeddingModel
 from src.evaluation.identity import validate_exact_paper_ids
 from src.rag import PaperIngestionPipeline, RAGRetriever
 from src.retrieval import PaperRecord
+from src.retrieval.ranking import RANKING_METHOD, relevance_threshold
 from src.vectorstore import ChromaVectorStore
 from src.vectorstore.chroma_store import collection_name_for
+from src.workflow.checkpoint import PARTIAL_ANALYSIS_STAGE
+
+# Topic runs analyze at most this many papers unless configured otherwise.
+DEFAULT_MAX_PAPERS = 6
+# Critic revision rounds. The default critic returns only ACCEPT or REJECT, so
+# there is nothing to revise; legacy critic modes may still request revisions.
+DEFAULT_MAX_REVISIONS = 0
 
 
 class ResearchWorkflowState(TypedDict, total=False):
@@ -74,6 +95,17 @@ class ResearchWorkflowState(TypedDict, total=False):
     evaluation_chroma_collection: str
     search_plan: SearchPlan
     papers: list[PaperRecord]
+    # Relevance of each retrieved paper to the original topic, keyed by the
+    # selection ID; kept outside PaperRecord so saved records are unchanged.
+    paper_relevance: dict[str, float]
+    relevance_threshold: float | None
+    # Method that produced paper_relevance. No candidate is removed before it
+    # is scored; the threshold above is the only relevance exclusion.
+    relevance_method: str
+    # One entry per retrieved paper: rank, relevance and selection outcome
+    # (analyzed, failed, not_attempted_max_papers, not_attempted_below_relevance,
+    # not_attempted_quota). Only "failed" papers are also excluded_papers.
+    paper_selection: list[dict]
     paper_analyses: list[PaperAnalysisResult]
     excluded_papers: list[ExcludedPaper]
     comparison: MultiPaperComparison
@@ -90,6 +122,8 @@ class ResearchWorkflowState(TypedDict, total=False):
     revised_gap_ids: list[str]
     # Append-only record of resume/recovery steps that produced this artifact.
     run_lineage: list[dict]
+    # Last completed step restored from a stage checkpoint (automatic resume).
+    checkpoint_stage: str
 
 
 @dataclass
@@ -98,7 +132,7 @@ class WorkflowAgents:
 
     retrieval: PlannerRetrievalAgent | None
     paper_analysis: PaperAnalysisPipeline
-    comparison: CrossPaperComparisonAgent
+    comparison: EvidenceMatrixComparisonAgent | CrossPaperComparisonAgent
     gap_detection: ResearchGapDetectionAgent
     evidence_validation: EvidenceValidationAgent
     critic: CriticAgent
@@ -144,13 +178,16 @@ def default_workflow_agents(
         evidence_validation = EvidenceValidationAgent(vector_store=vector_store)
         planner_retrieval = None
     else:
+        embedding_model = None  # the matrix agent loads the shared local model lazily
         planner_retrieval = PlannerRetrievalAgent()
         pipeline = PaperAnalysisPipeline()
         evidence_validation = EvidenceValidationAgent()
+    comparison = (pipeline.comparison_agent if comparison_mode() == "llm"
+                  else EvidenceMatrixComparisonAgent(embedding_model=embedding_model))
     return WorkflowAgents(
         retrieval=planner_retrieval,
         paper_analysis=pipeline,
-        comparison=pipeline.comparison_agent,
+        comparison=comparison,
         gap_detection=ResearchGapDetectionAgent(),
         evidence_validation=evidence_validation,
         critic=CriticAgent(),
@@ -172,6 +209,21 @@ def _critic_fingerprints(state: ResearchWorkflowState) -> dict[str, str]:
 
 def _paper_id(paper: PaperRecord) -> str:
     return paper.source_id or paper.doi or ""
+
+
+def _selection_id(paper: PaperRecord) -> str:
+    """ID used for relevance scores and selection outcomes (as in ExcludedPaper)."""
+    return paper.source_id or paper.doi or paper.title or "unknown"
+
+
+SELECTION_ANALYZED = "analyzed"
+SELECTION_FAILED = "failed"
+SELECTION_MAX_PAPERS = "not_attempted_max_papers"
+SELECTION_BELOW_RELEVANCE = "not_attempted_below_relevance"
+SELECTION_QUOTA = "not_attempted_quota"
+# Step at which a "failed" paper failed (paper_selection[...]["failure_step"]).
+SELECTION_STEP_DOWNLOAD = "download"
+SELECTION_STEP_ANALYSIS = "analysis"
 
 
 def _all_comparison_evidence(comparison: MultiPaperComparison) -> set[tuple[str, str]]:
@@ -239,11 +291,14 @@ def _questions_evidence_eligible(
     validation: EvidenceValidationResult,
     gap_ids: set[str] | None = None,
 ) -> bool:
-    """Reject question generation where any selected gap has unsupported evidence.
+    """Reject question generation where any selected gap fails the acceptance rule.
 
-    Validation completeness is always checked for every gap. Support strength is
-    checked for ``gap_ids`` (the critic-accepted gaps), or for all gaps when no
-    subset is given; critic-rejected gaps never receive questions.
+    Validation completeness is always checked for every gap. Each gap in
+    ``gap_ids`` (the critic-accepted gaps), or every gap when no subset is
+    given, must pass the strict acceptance rule of ``gap_acceptance``: FULLY_SUPPORTED
+    gap and joint status, every cited chunk SUPPORTED with a verified quote, at
+    least two papers and no unresolved contradiction. A PARTIALLY_SUPPORTED or
+    UNSUPPORTED gap is never eligible, whatever the critic decided.
     """
     if not _evidence_validation_complete(gap_result, validation):
         return False
@@ -253,13 +308,7 @@ def _questions_evidence_eligible(
     if not selected:
         return False
     for gap in selected:
-        item = by_id[gap.gap_id]
-        if (item.status is GapValidationStatus.UNSUPPORTED
-                or item.joint_assessment.status is GapSupportStatus.UNSUPPORTED
-                or not any(record.status in (
-                    EvidenceValidationStatus.SUPPORTED,
-                    EvidenceValidationStatus.PARTIALLY_SUPPORTED,
-                ) for record in item.evidence_validations)):
+        if acceptance_blockers(by_id[gap.gap_id], gap):
             return False
     return True
 
@@ -373,8 +422,18 @@ def _apply_revision_suggestions(
     return revised, changed_gap_ids
 
 
-def build_research_graph(agents: WorkflowAgents | None = None):
-    """Create the compiled LangGraph workflow using existing agent instances."""
+def _analysis_paper_id(analysis: PaperAnalysisResult) -> str | None:
+    owners = {item.paper_id for item in analysis.evidence}
+    return next(iter(owners)) if len(owners) == 1 else None
+
+
+def build_research_graph(agents: WorkflowAgents | None = None, checkpoint=None):
+    """Create the compiled LangGraph workflow using existing agent instances.
+
+    With a ``checkpoint`` (``src.workflow.checkpoint.RunCheckpoint``) the full
+    state is saved after every completed step and after every analyzed paper,
+    and a state carrying ``checkpoint_stage`` resumes at the next step.
+    """
     agents = agents or default_workflow_agents()
 
     def retrieve(state: ResearchWorkflowState) -> dict:
@@ -403,16 +462,31 @@ def build_research_graph(agents: WorkflowAgents | None = None):
             }
         if agents.retrieval is None:
             raise ValueError("Normal LangGraph retrieval is not configured.")
-        plan, papers = agents.retrieval.search(
+        result = agents.retrieval.search(
             state["research_topic"],
             max_results_per_source=state.get("max_results_per_source", 5),
+            with_relevance=True,
         )
-        return {
+        plan, papers = result[0], list(result[1])
+        update = {
             "search_plan": plan,
             "papers": papers,
             "workflow_status": "RUNNING",
             "stop_reason": None,
         }
+        if len(result) > 2 and result[2] is not None:
+            scores = list(result[2])
+            if len(scores) != len(papers):
+                raise ValueError("Retrieval returned a relevance score count that does not match its papers.")
+            # Deterministic order: relevance to the original topic, then retrieval order.
+            order = sorted(range(len(papers)), key=lambda i: (-scores[i], i))
+            update["papers"] = [papers[i] for i in order]
+            update["paper_relevance"] = {
+                _selection_id(papers[i]): scores[i] for i in order
+            }
+            update["relevance_threshold"] = relevance_threshold()
+            update["relevance_method"] = RANKING_METHOD
+        return update
 
     def analyze_papers(state: ResearchWorkflowState) -> dict:
         paths = state.get("pdf_paths", {})
@@ -423,8 +497,39 @@ def build_research_graph(agents: WorkflowAgents | None = None):
                 [_paper_id(paper) for paper in state.get("papers", [])],
                 expected_ids, "Frozen evaluation paper input",
             )
-        max_papers = None if evaluation_mode else state.get("max_papers")
-        selected = state["papers"][:max_papers] if max_papers else state["papers"]
+        # Topic runs analyze papers in ranked order (relevance to the original
+        # topic) until max_papers succeed (default six); a paper that cannot be
+        # analyzed is replaced by the next sufficiently relevant candidate, and
+        # papers below the relevance threshold are never analyzed. Every paper
+        # gets an explicit selection outcome. Frozen evaluation runs analyze
+        # exactly their corpus.
+        target = None if evaluation_mode else (state.get("max_papers") or DEFAULT_MAX_PAPERS)
+        relevance = {} if evaluation_mode else dict(state.get("paper_relevance") or {})
+        threshold = state.get("relevance_threshold") if relevance else None
+        selection: list[dict] = []
+
+        def select(paper, rank, outcome, reason=None, **details):
+            if evaluation_mode:
+                return
+            entry = {"paper_id": _selection_id(paper), "rank": rank,
+                     "relevance": relevance.get(_selection_id(paper)), "outcome": outcome}
+            if reason:
+                entry["reason"] = reason
+            entry.update(details)
+            selection.append(entry)
+
+        def save_partial():
+            if checkpoint is not None and not evaluation_mode:
+                checkpoint.save({**state, "paper_analyses": list(analyses),
+                                 "excluded_papers": list(excluded),
+                                 "paper_selection": list(selection)},
+                                PARTIAL_ANALYSIS_STAGE)
+
+        # Analyses restored from a checkpoint are reused, never re-requested.
+        prior = {} if evaluation_mode else {
+            _analysis_paper_id(item): item for item in state.get("paper_analyses") or []
+        }
+        prior.pop(None, None)
         analyses: list[PaperAnalysisResult] = []
         excluded: list[ExcludedPaper] = []
         # Each workflow run starts with fresh run-scoped quota state; it is
@@ -432,8 +537,36 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         begin_run = getattr(agents.paper_analysis, "begin_run", None)
         if callable(begin_run):
             begin_run()
-        for paper in selected:
+        quota_exhausted = False
+        for rank, paper in enumerate(state["papers"], start=1):
+            # Relevance first: a paper below the threshold is never a candidate,
+            # whether or not max_papers has been reached.
+            if threshold is not None:
+                score = relevance.get(_selection_id(paper))
+                if score is None or score < threshold:
+                    select(paper, rank, SELECTION_BELOW_RELEVANCE,
+                           f"Not attempted: relevance {score if score is not None else 'unknown'} "
+                           f"is below the threshold {threshold}.")
+                    continue
+            if target is not None and len(analyses) >= target:
+                select(paper, rank, SELECTION_MAX_PAPERS,
+                       f"Not attempted: max_papers={target} analyses had already succeeded.")
+                continue
             paper_id = _paper_id(paper)
+            if paper_id in prior:
+                analyses.append(prior[paper_id])
+                select(paper, rank, SELECTION_ANALYZED)
+                continue
+            if quota_exhausted:
+                excluded.append(ExcludedPaper(
+                    paper_id=paper.source_id or paper.doi or paper.title or "unknown",
+                    reason=f"RuntimeError: {DAILY_QUOTA_NOT_ATTEMPTED}",
+                ))
+                select(paper, rank, SELECTION_QUOTA, DAILY_QUOTA_NOT_ATTEMPTED)
+                continue
+            # "download": obtaining the PDF (local path or URL); "analysis":
+            # ingestion, evidence retrieval and the analysis request.
+            step = SELECTION_STEP_DOWNLOAD
             try:
                 resolved_paper_id = agents.paper_analysis._get_paper_id(paper)
                 if evaluation_mode and resolved_paper_id != paper_id:
@@ -441,9 +574,14 @@ def build_research_graph(agents: WorkflowAgents | None = None):
                         f"Analysis pipeline resolved {resolved_paper_id!r} instead of frozen ID {paper_id!r}."
                     )
                 paper_id = resolved_paper_id
+                if paper_id in prior:
+                    analyses.append(prior[paper_id])
+                    select(paper, rank, SELECTION_ANALYZED)
+                    continue
                 path = paths.get(paper_id)
                 if not path:
                     path = agents.paper_analysis._resolve_pdf_path(paper, paper_id, paths)
+                step = SELECTION_STEP_ANALYSIS
                 analysis = agents.paper_analysis.analyze_paper(
                     paper=paper,
                     pdf_path=str(Path(path)),
@@ -456,18 +594,25 @@ def build_research_graph(agents: WorkflowAgents | None = None):
                         f"chunks owned by other papers: {sorted(evidence_owners)}."
                     )
                 analyses.append(analysis)
+                select(paper, rank, SELECTION_ANALYZED, pdf_obtained=True)
+                save_partial()
             except Exception as error:
                 if evaluation_mode:
                     raise ValueError(
                         f"Frozen evaluation paper {paper_id!r} could not be analyzed: {error}"
                     ) from error
+                if _is_daily_quota_exhaustion(error):
+                    quota_exhausted = True
                 excluded.append(ExcludedPaper(
                     paper_id=paper.source_id or paper.doi or paper.title or "unknown",
                     reason=f"{type(error).__name__}: {error}",
                 ))
+                select(paper, rank, SELECTION_FAILED, f"{type(error).__name__}: {error}",
+                       failure_step=step, pdf_obtained=step == SELECTION_STEP_ANALYSIS)
+                save_partial()
         if evaluation_mode:
             analyzed_ids = []
-            for paper, analysis in zip(selected, analyses):
+            for paper, analysis in zip(state["papers"], analyses):
                 paper_id = _paper_id(paper)
                 evidence_ids = [item.paper_id for item in analysis.evidence]
                 if not evidence_ids or set(evidence_ids) != {paper_id}:
@@ -476,7 +621,9 @@ def build_research_graph(agents: WorkflowAgents | None = None):
                     )
                 analyzed_ids.append(paper_id)
             validate_exact_paper_ids(analyzed_ids, expected_ids, "Frozen evaluation analyses")
-        return {"paper_analyses": analyses, "excluded_papers": excluded}
+            return {"paper_analyses": analyses, "excluded_papers": excluded}
+        return {"paper_analyses": analyses, "excluded_papers": excluded,
+                "paper_selection": selection}
 
     def compare_papers(state: ResearchWorkflowState) -> dict:
         comparison = agents.comparison.compare_many(
@@ -525,6 +672,15 @@ def build_research_graph(agents: WorkflowAgents | None = None):
             _model_fingerprint(state["comparison"]),
             "Gap detection artifact",
         )
+        # The default (matrix) comparison carries the evidence matrix, whose exact
+        # quotes the validator checks deterministically before any model call.
+        matrix = getattr(state["comparison"], "evidence_matrix", None)
+
+        def run_validation(gaps):
+            if matrix is None:
+                return agents.evidence_validation.validate(gaps)
+            return agents.evidence_validation.validate(gaps, evidence_matrix=matrix)
+
         revised_gap_ids = state.get("revised_gap_ids", [])
         prior_validation = state.get("evidence_validation")
         if state.get("revision_applied") and revised_gap_ids and prior_validation is not None:
@@ -532,7 +688,7 @@ def build_research_graph(agents: WorkflowAgents | None = None):
             focused_gap_result = gap_result.model_copy(update={
                 "gaps": [gap for gap in gap_result.gaps if gap.gap_id in revised_set],
             })
-            focused_result = agents.evidence_validation.validate(focused_gap_result)
+            focused_result = run_validation(focused_gap_result)
             new_by_id = {item.gap_id: item for item in focused_result.gap_validations}
             if (len(new_by_id) != len(focused_result.gap_validations)
                     or set(new_by_id) != revised_set):
@@ -563,7 +719,7 @@ def build_research_graph(agents: WorkflowAgents | None = None):
                 "caveats": list(dict.fromkeys(prior_validation.caveats + focused_result.caveats)),
             })
         else:
-            result = agents.evidence_validation.validate(gap_result)
+            result = run_validation(gap_result)
         if set(result.paper_ids) != set(gap_result.paper_ids):
             raise ValueError("Evidence validation changed the gap-detection paper IDs.")
         if state.get("evaluation_prompt_id"):
@@ -664,7 +820,7 @@ def build_research_graph(agents: WorkflowAgents | None = None):
                        for review in critic.gap_reviews)):
             return "stop_incomplete_critic"
         if any(review.decision is CriticDecision.REVISE for review in critic.gap_reviews):
-            if state.get("revision_count", 0) < state.get("max_revisions", 2):
+            if state.get("revision_count", 0) < state.get("max_revisions", DEFAULT_MAX_REVISIONS):
                 return "revise"
             return "stop_revision_limit"
         accepted = {review.gap_id for review in critic.gap_reviews
@@ -689,14 +845,28 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         return stop(state, "Insufficient papers were retrieved.")
 
     def stop_insufficient_analysis(state):
-        return stop(state, "Fewer than the required number of papers could be analyzed.")
+        reason = "Fewer than the required number of papers could be analyzed."
+        threshold = state.get("relevance_threshold")
+        relevance = state.get("paper_relevance") or {}
+        if threshold is not None and relevance:
+            relevant = sum(1 for score in relevance.values() if score >= threshold)
+            analyzed = len(state.get("paper_analyses") or [])
+            reason += (
+                f" Insufficient evidence: {relevant} of {len(relevance)} retrieved papers "
+                f"met the relevance threshold {threshold} against the research topic, and "
+                f"{analyzed} of them could be analyzed (minimum "
+                f"{state.get('minimum_papers', 2)}). Papers below the threshold are not "
+                "analyzed, so the workflow stops rather than select unrelated papers."
+            )
+        return stop(state, reason)
 
     def stop_no_gaps(state):
         return stop(state, "No candidate research gaps were produced.")
 
     def stop_unsupported_evidence(state):
         return stop(state, "Evidence validation was incomplete, or a critic-accepted gap "
-                           "has no supported evidence.")
+                           "fails the strict acceptance rule (it is not fully supported by "
+                           "SUPPORTED, quote-verified evidence from at least two papers).")
 
     def stop_incomplete_critic(state):
         return stop(state, "Critic review was incomplete or reported errors.")
@@ -710,7 +880,41 @@ def build_research_graph(agents: WorkflowAgents | None = None):
     def stop_no_applicable_revision(state):
         return stop(state, "Critic requested revision, but no safe evidence-grounded suggestion could be applied.")
 
+    def route_checkpoint(state: ResearchWorkflowState) -> str:
+        """Next step after the last checkpointed step (automatic resume)."""
+        stage = state["checkpoint_stage"]
+        if stage == "retrieve":
+            return route_after_retrieval(state)
+        if stage == PARTIAL_ANALYSIS_STAGE:
+            return "analyze"
+        if stage == "analyze":
+            return route_after_analysis(state)
+        if stage == "compare":
+            return "detect_gaps"
+        if stage == "detect_gaps":
+            return route_after_gaps(state)
+        if stage == "validate":
+            return route_after_validation(state)
+        if stage == "critic":
+            return route_after_critic(state)
+        if stage == "revise":
+            return route_after_revision(state)
+        # Stops caused by incomplete work are retried; research outcomes
+        # (no gaps, rejected gaps, unsupported evidence, limits) are final.
+        if stage == "stop_insufficient_retrieval":
+            return "retrieve"
+        if stage == "stop_insufficient_analysis":
+            return "analyze"
+        if stage == "stop_incomplete_critic":
+            return "critic"
+        if stage == "stop_unsupported_evidence" and not _evidence_validation_complete(
+                state["gap_detection"], state["evidence_validation"]):
+            return "validate"
+        return END
+
     def route_start(state: ResearchWorkflowState) -> str:
+        if state.get("checkpoint_stage"):
+            return route_checkpoint(state)
         if state.get("resume_from_critic"):
             critic = state["critic_result"]
             if (critic.review_status is not CriticReviewStatus.COMPLETE
@@ -720,15 +924,25 @@ def build_research_graph(agents: WorkflowAgents | None = None):
             return route_after_critic(state)
         return "critic" if state.get("resume_from_evidence") else "retrieve"
 
+    def checkpointed(name, node):
+        if checkpoint is None:
+            return node
+
+        def run(state: ResearchWorkflowState) -> dict:
+            update = node(state)
+            checkpoint.save({**state, **update, "checkpoint_stage": name}, name)
+            return update
+        return run
+
     graph = StateGraph(ResearchWorkflowState)
-    graph.add_node("retrieve", retrieve)
-    graph.add_node("analyze", analyze_papers)
-    graph.add_node("compare", compare_papers)
-    graph.add_node("detect_gaps", detect_gaps)
-    graph.add_node("validate", validate_evidence)
-    graph.add_node("critic", review_with_critic)
-    graph.add_node("revise", revise_gaps)
-    graph.add_node("questions", generate_questions)
+    graph.add_node("retrieve", checkpointed("retrieve", retrieve))
+    graph.add_node("analyze", checkpointed("analyze", analyze_papers))
+    graph.add_node("compare", checkpointed("compare", compare_papers))
+    graph.add_node("detect_gaps", checkpointed("detect_gaps", detect_gaps))
+    graph.add_node("validate", checkpointed("validate", validate_evidence))
+    graph.add_node("critic", checkpointed("critic", review_with_critic))
+    graph.add_node("revise", checkpointed("revise", revise_gaps))
+    graph.add_node("questions", checkpointed("questions", generate_questions))
     for name, node in (
         ("stop_insufficient_retrieval", stop_insufficient_retrieval),
         ("stop_insufficient_analysis", stop_insufficient_analysis),
@@ -739,16 +953,17 @@ def build_research_graph(agents: WorkflowAgents | None = None):
         ("stop_rejected", stop_rejected),
         ("stop_no_applicable_revision", stop_no_applicable_revision),
     ):
-        graph.add_node(name, node)
+        graph.add_node(name, checkpointed(name, node))
 
-    graph.add_conditional_edges(START, route_start, {
-        "retrieve": "retrieve", "critic": "critic",
-        "revise": "revise", "questions": "questions",
-        "stop_incomplete_critic": "stop_incomplete_critic",
-        "stop_revision_limit": "stop_revision_limit",
-        "stop_rejected": "stop_rejected",
-        "stop_unsupported_evidence": "stop_unsupported_evidence",
-    })
+    start_targets = {name: name for name in (
+        "retrieve", "analyze", "compare", "detect_gaps", "validate", "critic",
+        "revise", "questions", "stop_insufficient_retrieval",
+        "stop_insufficient_analysis", "stop_no_gaps", "stop_unsupported_evidence",
+        "stop_incomplete_critic", "stop_revision_limit", "stop_rejected",
+        "stop_no_applicable_revision",
+    )}
+    start_targets[END] = END
+    graph.add_conditional_edges(START, route_start, start_targets)
     graph.add_conditional_edges("retrieve", route_after_retrieval, {
         "analyze": "analyze", "stop_insufficient_retrieval": "stop_insufficient_retrieval",
     })

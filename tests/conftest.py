@@ -45,6 +45,28 @@ def _block_network(monkeypatch):
     yield
 
 
+_PROVIDER_ENV_PREFIXES = ("GROQ_", "LLM_PROVIDER", "GEMINI_MODEL")
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_llm_provider_env(monkeypatch):
+    """Tests start from the documented defaults, not a developer's local .env.
+
+    Provider selection, Groq keys and model overrides are cleared, and the
+    provider module does not reload .env. Tests that need a setting set it
+    explicitly with monkeypatch.
+    """
+    import os
+
+    for name in list(os.environ):
+        if name.startswith(_PROVIDER_ENV_PREFIXES):
+            monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("src.agents.llm_provider._load_env", lambda: None)
+    # Each test starts with an empty Groq tokens-per-minute window.
+    monkeypatch.setattr("src.agents.groq_client._WINDOWS", {})
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Fresh-clone fixtures. The suite never reads the git-ignored local corpus
 # (data/papers, data/processed, chroma_db).

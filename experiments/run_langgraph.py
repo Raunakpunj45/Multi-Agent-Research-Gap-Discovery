@@ -17,9 +17,19 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
 from src.workflow.langgraph_app import (
+    DEFAULT_MAX_PAPERS,
+    DEFAULT_MAX_REVISIONS,
     ResearchWorkflowState,
     build_research_graph,
     default_workflow_agents,
+)
+from src.workflow.checkpoint import CheckpointError
+from src.workflow.dry_run import estimate_run, format_report
+from src.workflow.runner import (
+    RunInterrupted,
+    TopicRunConfig,
+    dry_run_topic,
+    run_topic,
 )
 from src.agents.artifact_io import (
     write_text_no_overwrite,
@@ -308,6 +318,48 @@ def _prepare_critic_resume(run_path: Path) -> dict:
     return state
 
 
+def _run_topic_cli(args, parser, pdf_paths: dict) -> int:
+    """Topic run with stage checkpoints and automatic resume."""
+    config = TopicRunConfig(
+        research_topic=args.topic,
+        analysis_query=args.analysis_query,
+        max_results_per_source=args.max_results_per_source,
+        minimum_papers=args.minimum_papers,
+        max_papers=args.max_papers or DEFAULT_MAX_PAPERS,
+        max_revisions=args.max_revisions,
+        pdf_paths=pdf_paths,
+    )
+    try:
+        if args.dry_run:
+            report, stage, run_dir = dry_run_topic(config, run_dir=args.run_dir)
+            if stage:
+                print(f"Using checkpoint in {run_dir} (last completed step: {stage}).")
+            print(format_report(report))
+            return 0
+        outcome = run_topic(config, run_dir=args.run_dir, fresh=args.fresh,
+                            agents=default_workflow_agents())
+    except (CheckpointError, ValueError) as error:
+        parser.error(str(error))
+    except RunInterrupted as error:
+        print(str(error))
+        return 2
+    result = outcome.state
+    if outcome.resumed_from:
+        print(f"Resumed after step '{outcome.resumed_from}' from {outcome.run_dir}.")
+    output = (args.output or (ROOT_DIR / "data" / "processed" / "langgraph_run.json")).resolve()
+    archived = write_text_preserving_previous(output, _serialize(result))
+    if archived is not None:
+        print(f"Previous output preserved: {archived}")
+    print(f"Workflow status: {result.get('workflow_status', 'UNKNOWN')}")
+    if result.get("stop_reason"):
+        print(f"Stopped: {result['stop_reason']}")
+    print(f"Checkpoints: {outcome.run_dir}")
+    if outcome.report_path is not None:
+        print(f"Report: {outcome.report_path}")
+    print(f"Saved: {output}")
+    return 0 if result.get("workflow_status") == "COMPLETE" else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--topic", help="Research topic to investigate.")
@@ -317,13 +369,22 @@ def main() -> int:
     parser.add_argument("--analysis-query", help="Paper analysis query (defaults to --topic).")
     parser.add_argument("--max-results-per-source", type=int, default=5)
     parser.add_argument("--minimum-papers", type=int, default=2)
-    parser.add_argument("--max-papers", type=int)
-    parser.add_argument("--max-revisions", type=int, default=2)
+    parser.add_argument("--max-papers", type=int,
+                        help=f"Most papers to analyze in a topic run (default {DEFAULT_MAX_PAPERS}).")
+    parser.add_argument("--max-revisions", type=int, default=DEFAULT_MAX_REVISIONS,
+                        help="Critic revision rounds (default 0: the default critic only "
+                             "accepts or rejects gaps and never rewrites them).")
     parser.add_argument(
         "--paper-pdf", action="append", default=[], metavar="PAPER_ID=PATH",
         help="Use a local PDF for an exact retrieved paper ID; may be repeated.",
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Estimate every stage's requests and token budgets; send nothing.")
+    parser.add_argument("--run-dir", type=Path,
+                        help="Checkpoint directory of a topic run (default: data/runs/<topic>-<hash>).")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Start the topic run over; the earlier checkpoint is archived, not deleted.")
     parser.add_argument("--resume-from-evidence", type=Path,
                         help="Resume a saved LangGraph artifact at Critic using its saved comparison and gaps.")
     parser.add_argument("--resume-from-critic", type=Path,
@@ -435,6 +496,8 @@ def main() -> int:
         parser.error("--max-revisions cannot be negative.")
     if args.max_papers is not None and args.max_papers < args.minimum_papers:
         parser.error("--max-papers cannot be less than --minimum-papers.")
+    if (args.run_dir or args.fresh) and args.evaluation_prompt_id:
+        parser.error("--run-dir and --fresh apply to topic runs, not frozen evaluation runs.")
 
     pdf_paths = {}
     for entry in args.paper_pdf:
@@ -479,7 +542,7 @@ def main() -> int:
     else:
         if not args.topic:
             parser.error("--topic is required unless --evaluation-prompt-id is selected.")
-        topic = args.topic
+        return _run_topic_cli(args, parser, pdf_paths)
     initial: ResearchWorkflowState = {
         "research_topic": topic,
         "analysis_query": canonical_text or args.analysis_query or topic,
@@ -509,6 +572,9 @@ def main() -> int:
     if evaluation_prompt_id and output.exists():
         parser.error(f"Evaluation artifact already exists and will not be overwritten: {output}")
 
+    if args.dry_run:
+        print(format_report(estimate_run(initial)))
+        return 0
     if evaluation_prompt_id:
         agents = default_workflow_agents(
             evaluation_chroma_dir=args.evaluation_chroma_dir,

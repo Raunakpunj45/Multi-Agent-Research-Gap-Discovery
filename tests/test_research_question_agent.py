@@ -129,6 +129,12 @@ def validation(status=GapValidationStatus.FULLY_SUPPORTED,
             }),
             "claim_evidence_alignment": "The chunk supports the attributed contribution.",
             "evidence_summary_accuracy": "Accurate for this chunk.",
+            # Verified verbatim chunk quote: the strict acceptance rule requires
+            # one for every SUPPORTED record of an accepted gap.
+            "supported_contribution_quote": (
+                "reports an evaluation contribution"
+                if item_status is EvidenceValidationStatus.SUPPORTED else None
+            ),
         })
     return EvidenceValidationResult(
         research_topic="scientific discovery",
@@ -194,6 +200,16 @@ class SequencedClient:
         if isinstance(outcome, Exception):
             raise outcome
         return SimpleNamespace(parsed=outcome)
+
+
+def assert_blocked_without_model_call(result, client, gap_id="GAP-001"):
+    """An ACCEPT on evidence failing the strict acceptance rule yields nothing."""
+    assert result.gap_results == []
+    assert result.generation_status is GenerationStatus.INCOMPLETE
+    assert [item.gap_id for item in result.skipped_gaps] == [gap_id]
+    assert "strict acceptance rule" in result.skipped_gaps[0].reason
+    assert any("strict acceptance rule" in error for error in result.errors)
+    assert not client.calls
 
 
 def run(client, critic_result=None, gap_detection=None, evidence_validation=None):
@@ -388,21 +404,18 @@ def test_three_gap_run_withholds_quota_failed_gap_and_marks_output_nonfinal():
     assert any("not a final report" in caveat for caveat in result.caveats)
 
 
-def test_partial_validation_allows_questions_but_explicitly_withholds_hypothesis():
+def test_partial_validation_with_accept_is_blocked_without_questions_or_hypothesis():
     client = FakeClient(llm_response(include_hypothesis=False))
     result = run(client, evidence_validation=validation(
         status=GapValidationStatus.PARTIALLY_SUPPORTED,
         joint_status=GapSupportStatus.PARTIALLY_SUPPORTED,
     ))
 
-    output = result.gap_results[0]
-    assert output.research_questions
-    assert output.hypothesis is None
-    assert output.hypothesis_status is HypothesisStatus.INSUFFICIENT_EVIDENCE
-    assert "cannot be generated" in output.hypothesis_limitation
+    assert_blocked_without_model_call(result, client)
+    assert "PARTIALLY_SUPPORTED, not FULLY_SUPPORTED" in result.skipped_gaps[0].reason
 
 
-def test_multiple_chunks_keep_their_own_status_and_limitations():
+def test_partial_chunk_among_multiple_chunks_blocks_the_accepted_gap():
     duplicate_chunk = f"{P1}_chunk_2"
     candidate_gap = gap()
     candidate_gap.supporting_evidence[0].chunk_ids.append(duplicate_chunk)
@@ -413,68 +426,34 @@ def test_multiple_chunks_keep_their_own_status_and_limitations():
         item_statuses=[EvidenceValidationStatus.PARTIALLY_SUPPORTED,
                        EvidenceValidationStatus.SUPPORTED],
     )
-    first_finding = {
-        "attributed_contribution": (
-            "The study uses a manually collected, richly annotated paper dataset and "
-            "raises a question about transferability across disciplines."
-        ),
-        "supported_contribution": "The study reports a dataset.",
-        "limitations": "This chunk does not verify the number of disciplines.",
-    }
-    second_finding = {
-        "attributed_contribution": (
-            "The study uses a manually collected richly annotated paper set and raises "
-            "a question about transferability across disciplines."
-        ),
-        "supported_contribution": "The study reports a dataset.",
-        "limitations": "None.",
-    }
-    validated.gap_validations[0].evidence_validations[0].findings = json.dumps(first_finding)
     validated.gap_validations[0].evidence_validations.append(EvidenceValidation(
-        paper_id=P1,
-        chunk_id=duplicate_chunk,
-        status=EvidenceValidationStatus.SUPPORTED,
-        findings=json.dumps(second_finding),
+        paper_id=P1, chunk_id=duplicate_chunk, status=EvidenceValidationStatus.SUPPORTED,
+        findings=json.dumps({"attributed_contribution": "The study reports a dataset."}),
+        supported_contribution_quote="reports a dataset",
     ))
     validated.gap_validations[0].joint_assessment.source_evidence[0].chunk_ids.append(
         duplicate_chunk
     )
-    response = llm_response(
-        question_labels=["P1-E1", "P1-E2"], include_hypothesis=False
-    )
-    result = run(
-        FakeClient(response),
-        gap_detection=gap_result([candidate_gap]),
-        evidence_validation=validated,
-    )
+    client = FakeClient(llm_response(question_labels=["P1-E1", "P1-E2"],
+                                     include_hypothesis=False))
+    result = run(client, gap_detection=gap_result([candidate_gap]),
+                 evidence_validation=validated)
 
-    output = result.gap_results[0]
-    paper_one_facts = [fact for fact in output.evidence_backed_facts
-                       if fact.source_evidence.paper_id == P1]
-    assert len(paper_one_facts) == 2
-    by_chunk = {fact.source_evidence.chunk_ids[0]: fact for fact in paper_one_facts}
-    assert by_chunk[C1].validation_status is EvidenceValidationStatus.PARTIALLY_SUPPORTED
-    assert by_chunk[duplicate_chunk].validation_status is EvidenceValidationStatus.SUPPORTED
-    assert len(by_chunk[C1].validation_limitations) == 1
-    rationale = output.research_questions[0].rationale
-    assert "PARTIALLY_SUPPORTED" in rationale
-    assert "does not verify the number of disciplines" in rationale
-    assert "tests the shared evaluation concern" not in rationale
+    assert_blocked_without_model_call(result, client)
+    assert f"{P1}/{C1} is PARTIALLY_SUPPORTED" in result.skipped_gaps[0].reason
 
 
-def test_model_hypothesis_is_discarded_when_validation_is_insufficient():
+def test_model_hypothesis_is_never_requested_when_validation_is_insufficient():
     client = FakeClient(llm_response(include_hypothesis=True))
     result = run(client, evidence_validation=validation(
         status=GapValidationStatus.PARTIALLY_SUPPORTED,
         joint_status=GapSupportStatus.PARTIALLY_SUPPORTED,
     ))
 
-    output = result.gap_results[0]
-    assert output.hypothesis is None
-    assert output.hypothesis_status is HypothesisStatus.INSUFFICIENT_EVIDENCE
+    assert_blocked_without_model_call(result, client)
 
 
-def test_hypothesis_must_cite_only_supported_evidence():
+def test_partially_supported_third_paper_blocks_the_accepted_gap():
     client = FakeClient(llm_response(hypothesis_labels=["P1-E1", "P3-E1"]))
     third_ref = EvidenceRef(paper_id=P3, chunk_ids=[C3])
     gap_with_third_paper = gap()
@@ -493,15 +472,12 @@ def test_hypothesis_must_cite_only_supported_evidence():
     gap_detection = gap_result([gap_with_third_paper])
     gap_detection.paper_ids.append(P3)
     gap_detection.paper_count = 3
-    result = run(
-        client,
-        gap_detection=gap_detection,
-        evidence_validation=validated,
-    )
+    result = run(client, gap_detection=gap_detection, evidence_validation=validated)
 
-    assert result.generation_status is GenerationStatus.COMPLETE
-    assert result.gap_results[0].hypothesis is None
-    assert result.gap_results[0].hypothesis_status is HypothesisStatus.INSUFFICIENT_EVIDENCE
+    # Even a FULLY_SUPPORTED gap is not accept-eligible while any cited chunk
+    # is only PARTIALLY_SUPPORTED.
+    assert_blocked_without_model_call(result, client)
+    assert f"{P3}/{C3} is PARTIALLY_SUPPORTED" in result.skipped_gaps[0].reason
 
 
 def test_invalid_question_citation_fails_closed():
@@ -588,7 +564,7 @@ def test_unsupported_gap_is_skipped_without_calling_model():
     ))
 
     assert result.gap_results == []
-    assert "does not support" in result.skipped_gaps[0].reason
+    assert "does not fully support" in result.skipped_gaps[0].reason
     assert not client.calls
 
 
@@ -653,30 +629,24 @@ def test_hypothesis_is_explicitly_a_proposal_not_an_evidence_finding():
     assert output.narrower_subgap.startswith("Narrower sub-gap tested:")
 
 
-def test_partial_chunk_does_not_inherit_other_chunks_limitation():
+def test_fully_supported_gap_with_a_partial_chunk_is_blocked():
     duplicate_chunk = f"{P1}_chunk_2"
     candidate_gap = gap()
     candidate_gap.supporting_evidence[0].chunk_ids.append(duplicate_chunk)
     candidate_gap.supporting_chunk_ids.append(duplicate_chunk)
     validated = validation(item_statuses=[EvidenceValidationStatus.PARTIALLY_SUPPORTED,
                                           EvidenceValidationStatus.SUPPORTED])
-    validated.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": "P1 reports a limited observation.",
-        "supported_contribution": "P1 reports a limited observation.",
-        "limitations": "This chunk omits the sample size.",
-    })
     validated.gap_validations[0].evidence_validations.append(EvidenceValidation(
         paper_id=P1, chunk_id=duplicate_chunk, status=EvidenceValidationStatus.SUPPORTED,
         findings=json.dumps({"attributed_contribution": "P1 reports an unrelated method."}),
+        supported_contribution_quote="reports an unrelated method",
     ))
     validated.gap_validations[0].joint_assessment.source_evidence[0].chunk_ids.append(duplicate_chunk)
-    response = llm_response(question_labels=["P1-E1", "P1-E2"], include_hypothesis=False)
-    result = run(FakeClient(response), gap_detection=gap_result([candidate_gap]),
+    client = FakeClient(llm_response(question_labels=["P1-E1", "P1-E2"], include_hypothesis=False))
+    result = run(client, gap_detection=gap_result([candidate_gap]),
                  evidence_validation=validated)
-    rationale = result.gap_results[0].research_questions[0].rationale
-    assert "This chunk omits the sample size" in rationale
-    assert "the cited paper reports an unrelated method" in rationale
-    assert rationale.count("PARTIALLY_SUPPORTED") == 1
+
+    assert_blocked_without_model_call(result, client)
 
 
 def test_rationale_uses_only_exact_cited_chunk_contributions():
@@ -686,76 +656,26 @@ def test_rationale_uses_only_exact_cited_chunk_contributions():
     assert "P2-E1" not in rationale and "P1-E1" not in rationale
 
 
-def test_hypothesis_generation_with_partial_evidence_is_withheld_even_if_model_returns_one():
-    result = run(FakeClient(llm_response()), evidence_validation=validation(
+def test_partial_evidence_blocks_hypothesis_even_if_model_would_return_one():
+    client = FakeClient(llm_response())
+    result = run(client, evidence_validation=validation(
         item_statuses=[EvidenceValidationStatus.PARTIALLY_SUPPORTED,
                        EvidenceValidationStatus.SUPPORTED]))
-    assert result.gap_results[0].hypothesis is None
-    assert result.gap_results[0].hypothesis_status is HypothesisStatus.INSUFFICIENT_EVIDENCE
+    assert_blocked_without_model_call(result, client)
 
 
-def test_partial_chunk_that_explicitly_lacks_llm_evidence_is_not_used_for_llm_claim():
+def test_partial_chunk_that_explicitly_lacks_llm_evidence_blocks_the_gap():
     partial = validation(item_statuses=[EvidenceValidationStatus.SUPPORTED,
                                         EvidenceValidationStatus.PARTIALLY_SUPPORTED])
-    partial.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": "P1 supports causal reasoning for LLM systems.",
-        "supported_contribution": "P1 supports causal reasoning for LLM systems.",
-        "mentions_llm": True,
-        "mentions_faithfulness": False,
-        "supports_causal_reasoning": True,
-    })
     partial.gap_validations[0].evidence_validations[1].findings = json.dumps({
         "attributed_contribution": (
             "P2 discusses LLM faithfulness and general machine-learning causal reasoning."
         ),
         "limitations": "This specific chunk does not mention LLMs or faithfulness concerns.",
     })
-    response = llm_response(question_labels=["P1-E1", "P2-E1"], include_hypothesis=False)
-    response.research_questions[0].question = (
-        "How should causal reasoning be embedded in LLM-assisted scientific workflows?"
-    )
-    result = run(FakeClient(response), evidence_validation=partial)
-    question = result.gap_results[0].research_questions[0]
-    assert question.source_evidence == [EvidenceRef(paper_id=P1, chunk_ids=[C1])]
-    assert "P2" not in question.rationale and "P2-E1" not in question.rationale
-
-
-def test_question_is_withheld_when_only_citation_conflicts_with_its_llm_claim():
-    partial = validation(item_statuses=[EvidenceValidationStatus.SUPPORTED,
-                                        EvidenceValidationStatus.PARTIALLY_SUPPORTED])
-    partial.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": "P1 discusses general machine-learning methods.",
-        "limitations": "This chunk does not mention LLMs.",
-    })
-    response = llm_response(question_labels=["P1-E1"], include_hypothesis=False)
-    response.research_questions[0].question = "How does this method affect LLM faithfulness?"
-    result = run(FakeClient(response), evidence_validation=partial)
-    assert result.gap_results == []
-    assert any("No research questions remained" in error for error in result.errors)
-
-
-@pytest.mark.parametrize("limitation", [
-    "This chunk does not mention LLMs.",
-    "LLMs are not discussed in this passage.",
-    "There is no evidence about large language models here.",
-    "The text does not address faithfulness of self-explanations.",
-])
-def test_limitation_variants_detect_explicit_subject_absence(limitation):
-    subject = "mentions_faithfulness" if "faithfulness" in limitation else "mentions_llm"
-    assert ResearchQuestionAgent._limitation_conflicts_with_subject(limitation, subject)
-
-
-@pytest.mark.parametrize("flag_value", [None, False])
-def test_llm_fact_is_withheld_when_subject_flag_is_missing_or_false(flag_value):
-    item = validation().gap_validations[0].evidence_validations[0]
-    item.findings = json.dumps({
-        "attributed_contribution": "LLM self-explanations raise faithfulness concerns.",
-        "supported_contribution": "LLM self-explanations raise faithfulness concerns.",
-        "mentions_llm": flag_value,
-        "mentions_faithfulness": True,
-    })
-    labels = {"P1-E1": (P1, C1, EvidenceValidationStatus.SUPPORTED)}
-    assert ResearchQuestionAgent._validated_facts([item], labels) == []
+    client = FakeClient(llm_response(question_labels=["P1-E1", "P2-E1"], include_hypothesis=False))
+    result = run(client, evidence_validation=partial)
+    assert_blocked_without_model_call(result, client)
 
 
 def test_none_identified_is_not_published_as_a_limitation():
@@ -799,43 +719,35 @@ def test_duplicate_and_near_duplicate_questions_are_removed():
     assert len(output.research_questions) == 1
 
 
-def test_same_chunk_semantic_duplicates_are_narrowed_then_deduplicated():
-    assessed = validation()
-    assessed.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": (
-            "P1 calls for advances in physics-infused ML and causal reasoning in AI for Science."
-        ),
-        "supported_contribution": (
-            "P1 calls for advances in physics-infused ML and causal reasoning in AI for Science."
-        ),
-        "mentions_llm": True,
-        "supports_physics_informed_ml": True,
-        "supports_causal_reasoning": True,
-    })
+def test_same_chunk_near_duplicate_questions_are_deduplicated_without_rewriting():
     response = llm_response(question_labels=["P1-E1"], include_hypothesis=False)
     response.research_questions = [
         _LLMResearchQuestion(
-            question=(
-                "How can physics-informed constraints and causal reasoning frameworks be "
-                "integrated into LLM-assisted scientific discovery workflows?"
-            ), rationale="Joint direction.", evidence_labels=["P1-E1"],
+            question="How does the evaluation protocol affect reported model accuracy?",
+            rationale="Direction.", evidence_labels=["P1-E1"],
         ),
         _LLMResearchQuestion(
-            question=(
-                "What framework effectively combines physics-infused machine learning "
-                "with causal reasoning for AI-driven scientific workflows?"
-            ), rationale="Same direction.", evidence_labels=["P1-E1"],
+            question="How does the evaluation protocol affect the reported model accuracy?",
+            rationale="Same direction.", evidence_labels=["P1-E1"],
         ),
     ]
 
-    output = run(FakeClient(response), evidence_validation=assessed).gap_results[0]
+    output = run(FakeClient(response)).gap_results[0]
     assert len(output.research_questions) == 1
+    # The model's question is kept verbatim; no topic-specific rewriting.
     assert output.research_questions[0].question == (
-        "How might physics-infused machine learning and causal reasoning be jointly "
-        "investigated to advance AI for Science?"
+        "How does the evaluation protocol affect reported model accuracy?"
     )
-    assert output.hypothesis is None
-    assert output.hypothesis_status is HypothesisStatus.INSUFFICIENT_EVIDENCE
+
+
+def test_questions_are_never_rewritten_by_topic_rules():
+    response = llm_response(question_labels=["P1-E1"], include_hypothesis=False)
+    response.research_questions[0].question = (
+        "What evaluation frameworks compare LLM performance in social-science research "
+        "with natural-science domains?"
+    )
+    question = run(FakeClient(response)).gap_results[0].research_questions[0]
+    assert question.question == response.research_questions[0].question
 
 
 def test_all_malformed_findings_withhold_questions_before_model_call():
@@ -864,88 +776,29 @@ def test_mocked_generation_is_byte_reproducible_with_stable_hypothesis_format():
     assert item["critic_caveats"] == ["Bounded to the supplied paper collection."]
 
 
-def test_gap_001_survey_question_drops_irrelevant_dataset_citation():
+def test_gap_001_survey_gap_with_partial_dataset_citation_is_blocked():
     assessed = validation(item_statuses=[EvidenceValidationStatus.SUPPORTED,
                                          EvidenceValidationStatus.PARTIALLY_SUPPORTED])
-    assessed.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": "P1 leaves social-science LLM work outside its survey scope.",
-        "supported_contribution": "P1 leaves social-science LLM work outside its survey scope.",
-        "mentions_llm": True,
-        "supports_social_science_survey_scope": True,
-    })
     assessed.gap_validations[0].evidence_validations[1].findings = json.dumps({
         "attributed_contribution": "P2 presents an annotated social-science dataset.",
         "limitations": "This chunk does not verify the claimed cross-discipline scope.",
     })
-    response = llm_response(question_labels=["P1-E1", "P2-E1"], include_hypothesis=False)
-    response.research_questions[0].question = (
-        "What social-science survey coverage is omitted from this LLM survey?"
-    )
-    output = run(FakeClient(response), evidence_validation=assessed).gap_results[0]
-    assert output.research_questions[0].source_evidence == [
-        EvidenceRef(paper_id=P1, chunk_ids=[C1])
-    ]
-    assert "P2" not in output.research_questions[0].rationale
+    client = FakeClient(llm_response(question_labels=["P1-E1", "P2-E1"], include_hypothesis=False))
+    result = run(client, evidence_validation=assessed)
+    assert_blocked_without_model_call(result, client)
 
 
-def test_gap_001_social_science_performance_comparison_is_narrowed_to_supported_scope():
+def test_gap_002_partial_chunk_29_blocks_facts_questions_and_hypothesis():
     assessed = validation(item_statuses=[EvidenceValidationStatus.SUPPORTED,
                                          EvidenceValidationStatus.PARTIALLY_SUPPORTED])
-    assessed.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": (
-            "P1 leaves social-science LLM efforts outside its survey scope."
-        ),
-        "supported_contribution": (
-            "P1 leaves social-science LLM efforts outside its survey scope."
-        ),
-        "mentions_llm": True,
-        "supports_social_science_survey_scope": True,
-    })
-    response = llm_response(question_labels=["P1-E1"], include_hypothesis=False)
-    response.research_questions[0].question = (
-        "What evaluation frameworks compare LLM performance in social-science research "
-        "with natural-science domains?"
-    )
-
-    question = run(FakeClient(response), evidence_validation=assessed).gap_results[0].research_questions[0]
-    assert "performance" not in question.question.casefold()
-    assert "compare" not in question.question.casefold()
-    assert "leaves for future work" in question.question
-    assert question.source_evidence == [EvidenceRef(paper_id=P1, chunk_ids=[C1])]
-
-
-def test_gap_002_chunk_29_is_excluded_from_facts_questions_and_hypothesis():
-    assessed = validation(item_statuses=[EvidenceValidationStatus.SUPPORTED,
-                                         EvidenceValidationStatus.PARTIALLY_SUPPORTED])
-    assessed.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": "P1 calls for physics-informed ML and causal reasoning for AI science.",
-        "supported_contribution": "P1 calls for physics-informed ML and causal reasoning for AI science.",
-        "mentions_llm": True,
-        "supports_physics_informed_ml": True,
-        "supports_causal_reasoning": True,
-    })
     assessed.gap_validations[0].evidence_validations[1].findings = json.dumps({
         "attributed_contribution": "P2 reports LLM faithfulness concerns and discusses causal reasoning.",
         "limitations": "This specific chunk does not mention LLMs or faithfulness concerns.",
-        "mentions_llm": False,
-        "mentions_faithfulness": False,
-        "supports_causal_reasoning": True,
     })
-    response = llm_response(
-        question_labels=["P1-E1", "P2-E1"],
-        hypothesis_labels=["P1-E1", "P2-E1"],
-    )
-    response.research_questions[0].question = (
-        "How can causal reasoning be used in LLM-assisted scientific discovery?"
-    )
-    result = run(FakeClient(response), evidence_validation=assessed)
-    output = result.gap_results[0]
-    assert all(C2 not in fact.source_evidence.chunk_ids
-               for fact in output.evidence_backed_facts)
-    assert all(C2 not in ref.chunk_ids for question in output.research_questions
-               for ref in question.source_evidence)
-    assert output.hypothesis is None
-    assert output.hypothesis_status is HypothesisStatus.INSUFFICIENT_EVIDENCE
+    client = FakeClient(llm_response(question_labels=["P1-E1", "P2-E1"],
+                                     hypothesis_labels=["P1-E1", "P2-E1"]))
+    result = run(client, evidence_validation=assessed)
+    assert_blocked_without_model_call(result, client)
 
 
 def test_gap_002_integration_question_keeps_chunk_contributions_separate():
@@ -976,22 +829,3 @@ def test_gap_002_integration_question_keeps_chunk_contributions_separate():
     ]
     assert "the cited paper calls for physics-informed ML" in question.rationale
     assert "the cited paper reports faithfulness concerns" in question.rationale
-    assert "combined physics-informed and faithfulness direction is proposed" in question.rationale
-
-
-def test_gap_003_intervention_is_explicitly_proposed_not_established():
-    assessed = validation()
-    assessed.gap_validations[0].evidence_validations[0].findings = json.dumps({
-        "attributed_contribution": "P1 reports peer-review weaknesses and homogenized critiques from LLMs.",
-        "supported_contribution": "P1 reports peer-review weaknesses and homogenized critiques from LLMs.",
-        "mentions_llm": True,
-        "supports_peer_review_quality_assessment": True,
-        "supports_critique_homogenization": True,
-    })
-    response = llm_response(question_labels=["P1-E1"], include_hypothesis=False)
-    response.research_questions[0].question = (
-        "Could domain-specific rubrics be tested to reduce LLM peer-review critique homogenization?"
-    )
-    rationale = run(FakeClient(response), evidence_validation=assessed).gap_results[0].research_questions[0].rationale
-    assert "proposed direction to test" in rationale
-    assert "not a finding established" in rationale

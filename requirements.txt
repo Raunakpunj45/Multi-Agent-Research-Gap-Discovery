@@ -1,7 +1,25 @@
-google-genai
-python-dotenv
-requests
-pymupdf
-chromadb
-sentence-transformers
+# Runtime dependencies. Supported Python: 3.14 (the tested version).
+# Ranges allow compatible updates within a major version. Lower bounds for
+# packages with compiled dependencies match the tested releases, because older
+# releases do not ship Python 3.14 wheels. Transitive dependencies (torch,
+# transformers, numpy, httpx, ...) are resolved by pip and not pinned here.
+
+# LLM providers
+groq>=1.7,<2.0                     # default provider (official Groq SDK)
+google-genai>=2.0,<3.0             # optional Gemini provider and request-config types
+
+# Structured outputs and configuration
+pydantic>=2.12,<3.0                # agent schemas (imported directly)
+python-dotenv>=1.0,<2.0
+
+# Retrieval and PDF processing
+requests>=2.32,<3.0
+pymupdf>=1.28,<2.0
+
+# Embeddings and vector store (sentence-transformers installs PyTorch)
+sentence-transformers>=6.1,<7.0
+chromadb>=1.5,<2.0
+
+# Orchestration and UI
 langgraph>=1.0,<2.0
+streamlit>=1.67,<2.0

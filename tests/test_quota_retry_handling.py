@@ -204,12 +204,12 @@ def test_agents_keep_lazy_six_key_clients_and_injected_clients():
     for agent, group in ((PaperAnalysisAgent(), "ANALYSIS"),
                          (CrossPaperComparisonAgent(), "COMPARISON"),
                          (ResearchGapDetectionAgent(), "GAP"),
-                         (EvidenceValidationAgent(vector_store=Store()), "VALIDATION"),
+                         (EvidenceValidationAgent(mode="per_chunk", vector_store=Store()), "VALIDATION"),
                          (CriticAgent(), "CRITIC"),
                          (ResearchQuestionAgent(), "QUESTION")):
         assert agent._client is None, group   # nothing created at construction
     assert PaperAnalysisAgent(client=injected).client is injected
-    assert EvidenceValidationAgent(vector_store=Store(), client=injected).client is injected
+    assert EvidenceValidationAgent(mode="per_chunk", vector_store=Store(), client=injected).client is injected
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +234,7 @@ class FailingFirstClient(ValidationClient):
 
 def validate_with(errors):
     client = FailingFirstClient(errors)
-    agent = EvidenceValidationAgent(vector_store=Store(), client=client, max_retries=5)
+    agent = EvidenceValidationAgent(mode="per_chunk", vector_store=Store(), client=client, max_retries=5)
     return agent, agent.validate(input_result()), client
 
 
@@ -394,7 +394,7 @@ def test_workflow_reuse_recovers_after_quota_reset(tmp_path, sleeps):
 def test_other_agents_do_not_leak_quota_state_across_runs(sleeps):
     # Evidence Validation: reset per validate() call.
     client = FailingFirstClient([daily_quota_error()])
-    agent = EvidenceValidationAgent(vector_store=Store(), client=client, max_retries=5)
+    agent = EvidenceValidationAgent(mode="per_chunk", vector_store=Store(), client=client, max_retries=5)
     assert agent.validate(input_result()).gap_validations[0].status is GapValidationStatus.VALIDATION_INCOMPLETE
     client.chunk_statuses = iter(["SUPPORTED", "PARTIALLY_SUPPORTED"])
     assert agent.validate(input_result()).gap_validations[0].status is not GapValidationStatus.VALIDATION_INCOMPLETE

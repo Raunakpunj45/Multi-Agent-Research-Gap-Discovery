@@ -1,18 +1,53 @@
+# ---- Local secrets and configuration (never commit) ----
 .env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# ---- Virtual environments ----
 venv/
+.venv/
+env/
+
+# ---- Python and test caches ----
 __pycache__/
-*.pyc
-
-chroma_db/
-*.db
-
-data/papers/*
-data/processed/*
-demo_analysis_report.md
-demo_output.txt
-# Pytest temporary directories
+*.py[cod]
 .pytest_cache/
 .pytest-*/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
+# ---- Logs and OS / editor files ----
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Research paper files (copyrighted; never commit) ----
+*.pdf
+data/papers/
+data/comparison_dataset/
+
+# ---- Vector stores and local databases ----
+chroma_db/
+*.db
+*.sqlite3
 data/evaluation/chroma_multi_agent/
+
+# ---- Generated pipeline artifacts ----
+data/processed/*
 data/evaluation/runs/
+demo_analysis_report.md
+demo_output.txt
+
+# ---- Topic-run checkpoints ----
+# Every run directory is ignored, except the report and manifest of the sample
+# successful run. Its state.json, archive/ and any other files stay local.
+data/runs/*
+!data/runs/ui-multi-agent-llm-systems-for-scientific-l-20261118T212229Z-a19b94/
+data/runs/ui-multi-agent-llm-systems-for-scientific-l-20261118T212229Z-a19b94/*
+!data/runs/ui-multi-agent-llm-systems-for-scientific-l-20261118T212229Z-a19b94/report.md
+!data/runs/ui-multi-agent-llm-systems-for-scientific-l-20261118T212229Z-a19b94/manifest.json

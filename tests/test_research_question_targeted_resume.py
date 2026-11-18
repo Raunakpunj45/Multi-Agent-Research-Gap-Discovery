@@ -24,11 +24,63 @@ SOURCE_ARTIFACT = (Path(__file__).resolve().parent / "fixtures" / "langgraph_run
 
 
 @pytest.fixture
-def artifact_copy(tmp_path):
+def raw_artifact_copy(tmp_path):
+    """Unmodified temporary copy of the saved run."""
     content = SOURCE_ARTIFACT.read_bytes()
     path = tmp_path / "saved-run.json"
     path.write_bytes(content)
     return path, content
+
+
+def make_gap_accept_eligible(path, gap_id="GAP-004"):
+    """In a TEMPORARY copy only: make the target gap pass the strict acceptance rule.
+
+    The saved fixture's GAP-004 cites two PARTIALLY_SUPPORTED chunks, which the
+    strict acceptance rule (correctly) refuses. To keep exercising the recovery
+    mechanics, every cited record becomes SUPPORTED with a verified quote copied
+    verbatim from the stored chunk text, the gap and joint status become
+    FULLY_SUPPORTED, and the critic fingerprints are recomputed so the copy is
+    internally consistent. The fixture file itself is never modified.
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    chunk_text = {item["chunk_id"]: item["text"]
+                  for analysis in data["paper_analyses"] for item in analysis["evidence"]}
+    validation = EvidenceValidationResult.model_validate(data["evidence_validation"])
+    target = next(item for item in validation.gap_validations if item.gap_id == gap_id)
+    target.status = GapValidationStatus.FULLY_SUPPORTED
+    target.joint_assessment.status = GapSupportStatus.FULLY_SUPPORTED
+    for record in target.evidence_validations:
+        record.status = runner.EvidenceValidationStatus.SUPPORTED
+        text = chunk_text[record.chunk_id]
+        record.supported_contribution_quote = text[:80].strip()
+        assert record.supported_contribution_quote in text
+    data["evidence_validation"] = validation.model_dump(mode="json")
+    fingerprint = _model_fingerprint(validation)
+    critic = runner.CriticResult.model_validate(data["critic_result"])
+    critic.input_fingerprints["evidence_validation"] = fingerprint
+    data["critic_result"] = critic.model_dump(mode="json")
+    data["critic_input_fingerprints"]["evidence_validation"] = fingerprint
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path, path.read_bytes()
+
+
+@pytest.fixture
+def artifact_copy(raw_artifact_copy):
+    """Temporary copy whose GAP-004 is accept-eligible (see make_gap_accept_eligible)."""
+    return make_gap_accept_eligible(raw_artifact_copy[0])
+
+
+def test_saved_partially_supported_target_is_refused_before_agent_call(raw_artifact_copy, monkeypatch):
+    """The unmodified saved GAP-004 was ACCEPTED while citing PARTIALLY_SUPPORTED
+    chunks; the strict acceptance rule refuses to recover questions for it."""
+    source, original_bytes = raw_artifact_copy
+    agent = Mock()
+    monkeypatch.setattr(runner, "ResearchQuestionAgent", lambda: agent)
+
+    with pytest.raises(ValueError, match="strict acceptance rule"):
+        runner.recover_questions_for_gap(source, "GAP-004", artifact_path_base(source, "strict"))
+    agent.generate_questions.assert_not_called()
+    assert source.read_bytes() == original_bytes
 
 
 def successful_target_result(topic):

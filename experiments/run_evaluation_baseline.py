@@ -20,6 +20,7 @@ from src.evaluation.baselines import (
     load_frozen_evaluation_corpus,
 )
 from src.evaluation.runner import create_imported_run
+from src.agents.llm_provider import get_provider
 
 
 def main() -> int:
@@ -30,7 +31,8 @@ def main() -> int:
     parser.add_argument("--runs-dir", type=Path, default=ROOT_DIR / "data" / "evaluation" / "runs")
     parser.add_argument("--normalized-output", type=Path,
                         help="Optional copy of the normalized output JSON before runner import.")
-    parser.add_argument("--model", default="gemini-3.5-flash")
+    parser.add_argument("--model", default=None,
+                        help="Model ID; default comes from LLM_PROVIDER and <PROVIDER>_MODEL_BASELINE (see README).")
     parser.add_argument("--top-k", type=int, default=8,
                         help="Per-paper retrieval count for conventional RAG.")
     parser.add_argument("--chroma-dir", type=Path, default=ROOT_DIR / "chroma_db")
@@ -41,12 +43,14 @@ def main() -> int:
     corpus = load_frozen_evaluation_corpus(args.manifest)
     prompt = corpus.prompts[args.prompt_id]
     generator = GeminiStructuredGenerator(model=args.model)
+    provider = get_provider()
     if args.system == "single_llm":
         baseline = SingleLLMBaseline(generator)
         output = baseline.generate(corpus, args.prompt_id, ROOT_DIR)
         system_configuration = {
             "baseline": "single_llm",
-            "model": args.model,
+            "provider": provider,
+            "model": generator.model,
             "temperature": 0,
             "context_strategy": "all locally extracted chunks from all six evaluation papers in one generation call",
         }
@@ -56,7 +60,8 @@ def main() -> int:
         output = baseline.generate(corpus, args.prompt_id)
         system_configuration = {
             "baseline": "conventional_rag",
-            "model": args.model,
+            "provider": provider,
+            "model": generator.model,
             "temperature": 0,
             "retrieval": "existing_chromadb_collection",
             "top_k_per_paper": args.top_k,

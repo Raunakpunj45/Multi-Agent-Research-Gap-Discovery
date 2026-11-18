@@ -1,4 +1,6 @@
 import re
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
 import time
 
 import os
@@ -8,7 +10,8 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
-from src.agents.gemini_config import create_gemini_client
+from src.agents.llm_provider import create_llm_client, resolve_model
+from src.agents.output_budget import generation_config
 from src.rag import RetrievedChunk
 
 
@@ -25,7 +28,7 @@ RETRYABLE_MESSAGE_FRAGMENTS = (
 
 
 DAILY_QUOTA_NOT_ATTEMPTED = (
-    "Gemini request not attempted: the daily API quota was exhausted earlier "
+    "LLM request not attempted: the daily API quota was exhausted earlier "
     "in this run (HTTP 429)."
 )
 
@@ -85,6 +88,81 @@ def _is_retryable(error: Exception) -> bool:
         fragment.lower() in message.lower()
         for fragment in RETRYABLE_MESSAGE_FRAGMENTS
     )
+
+
+def _provider_retry_after(error: Exception) -> float | None:
+    """Read common HTTP and Google retry-delay fields without requiring a provider type."""
+    for name in ("retry_after_seconds", "retry_after"):
+        value = getattr(error, name, None)
+        if value is not None:
+            try:
+                return max(0.0, float(value))
+            except (TypeError, ValueError):
+                pass
+
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    if headers is not None:
+        retry_after = headers.get("Retry-After") or headers.get("retry-after")
+        if retry_after:
+            try:
+                return max(0.0, float(retry_after))
+            except (TypeError, ValueError):
+                try:
+                    target = parsedate_to_datetime(retry_after)
+                    if target.tzinfo is None:
+                        target = target.replace(tzinfo=timezone.utc)
+                    return max(0.0, (target - datetime.now(timezone.utc)).total_seconds())
+                except (TypeError, ValueError, OverflowError):
+                    pass
+
+    details = getattr(error, "details", None)
+    if callable(details):
+        try:
+            details = details()
+        except Exception:
+            details = None
+
+    def find_retry_delay(value):
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                if str(key).casefold().replace("_", "") == "retrydelay":
+                    if isinstance(nested, (int, float)):
+                        return max(0.0, float(nested))
+                    if isinstance(nested, str):
+                        match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)s\s*", nested)
+                        if match:
+                            return float(match.group(1))
+                found = find_retry_delay(nested)
+                if found is not None:
+                    return found
+        elif isinstance(value, list):
+            for nested in value:
+                found = find_retry_delay(nested)
+                if found is not None:
+                    return found
+        return None
+
+    retry_delay = find_retry_delay(details)
+    if retry_delay is not None:
+        return retry_delay
+    return None
+
+
+def retry_delay_seconds(error: Exception, attempt: int, base_backoff_seconds: float,
+                        max_backoff_seconds: float) -> float | None:
+    """Delay before retrying a transient error, or ``None`` to fail closed.
+
+    A provider-requested delay (HTTP ``Retry-After``, Groq rate-limit headers,
+    Gemini ``retryDelay``) is honoured exactly; it is never shortened. If it is
+    longer than ``max_backoff_seconds`` the caller must stop instead of
+    retrying early. Without provider guidance, bounded exponential backoff is
+    used as before.
+    """
+    provider_delay = _provider_retry_after(error)
+    if provider_delay is not None:
+        return provider_delay if provider_delay <= max_backoff_seconds else None
+    return min(base_backoff_seconds * (2 ** (attempt - 1)), max_backoff_seconds)
 
 
 class PaperAnalysis(BaseModel):
@@ -149,7 +227,7 @@ class PaperAnalysisResult(BaseModel):
 class PaperAnalysisAgent:
     def __init__(
         self,
-        model: str = "gemini-3.5-flash-lite",
+        model: str | None = None,
         max_retries: int = 5,
         base_backoff_seconds: float = 2.0,
         max_backoff_seconds: float = 60.0,
@@ -162,7 +240,7 @@ class PaperAnalysisAgent:
         # run are not sent. Cleared by begin_run() at the start of each run.
         self._daily_quota_exhausted = False
 
-        self.model = model
+        self.model = model or resolve_model("ANALYSIS")
         self.max_retries = max_retries
         self.base_backoff_seconds = base_backoff_seconds
         self.max_backoff_seconds = max_backoff_seconds
@@ -170,7 +248,7 @@ class PaperAnalysisAgent:
     @property
     def client(self):
         if self._client is None:
-            self._client = create_gemini_client("ANALYSIS")
+            self._client = create_llm_client("ANALYSIS")
         return self._client
 
     def begin_run(self) -> None:
@@ -247,7 +325,8 @@ class PaperAnalysisAgent:
                         "retrieved evidence chunks.\n\n"
                         f"{evidence_text}"
                     ),
-                    config=types.GenerateContentConfig(
+                    config=generation_config(
+                        "paper_analysis",
                         system_instruction=system_instruction,
                         response_mime_type="application/json",
                         response_schema=PaperAnalysis,
@@ -266,10 +345,14 @@ class PaperAnalysisAgent:
                 if attempt == self.max_retries or not _is_retryable(error):
                     raise
 
-                wait_time = min(
-                    self.base_backoff_seconds * (2 ** (attempt - 1)),
+                # Honour a provider Retry-After exactly; fail closed when it
+                # exceeds max_backoff_seconds instead of retrying too early.
+                wait_time = retry_delay_seconds(
+                    error, attempt, self.base_backoff_seconds,
                     self.max_backoff_seconds,
                 )
+                if wait_time is None:
+                    raise
 
                 print(
                     f"Paper Analysis Agent request failed "
@@ -292,12 +375,14 @@ class PaperAnalysisAgent:
             evidence_chunks,
             start=1,
         ):
+            # Only the chunk text is sent. Chunk/paper IDs and retrieval
+            # distances are not needed by the model (the analysis cites no
+            # IDs; the exact chunks are attached to the result in code), so
+            # omitting them saves tokens without removing any evidence text.
+            # Whitespace is collapsed; the words are unchanged.
             evidence_parts.append(
                 f"--- Evidence Chunk {index} ---\n"
-                f"Chunk ID: {chunk.chunk_id}\n"
-                f"Paper ID: {chunk.paper_id}\n"
-                f"Distance: {chunk.distance}\n"
-                f"Text:\n{chunk.text}"
+                f"{' '.join(chunk.text.split())}"
             )
 
         return "\n\n".join(evidence_parts)

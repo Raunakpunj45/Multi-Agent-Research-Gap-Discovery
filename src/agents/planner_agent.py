@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
-from src.agents.gemini_config import create_gemini_client
+from src.agents.llm_provider import create_llm_client, resolve_model
+from src.agents.output_budget import generation_config
 
 
 load_dotenv()
@@ -49,19 +50,19 @@ class SearchPlan(BaseModel):
 class PlannerAgent:
     def __init__(
         self,
-        model: str = "gemini-3.5-flash",
+        model: str | None = None,
         client=None,
     ):
         # Planning is an upstream analysis-stage Gemini call (ANALYSIS key),
         # created lazily on first use.
         self._client = client
 
-        self.model = model
+        self.model = model or resolve_model("PLANNER")
 
     @property
     def client(self):
         if self._client is None:
-            self._client = create_gemini_client("ANALYSIS")
+            self._client = create_llm_client("ANALYSIS")
         return self._client
 
     @client.setter
@@ -96,7 +97,8 @@ class PlannerAgent:
                 "Generate a structured research search plan "
                 f"for the following research topic:\n\n{topic}"
             ),
-            config=types.GenerateContentConfig(
+            config=generation_config(
+                "planner",
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=SearchPlan,

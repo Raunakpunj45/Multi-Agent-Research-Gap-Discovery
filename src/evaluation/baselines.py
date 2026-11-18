@@ -87,24 +87,30 @@ def _gemini_compatible_schema(model: type[BaseModel]) -> dict:
 
 
 class GeminiStructuredGenerator:
-    """Small provider adapter; construction makes no request."""
+    """Structured baseline generator for the configured LLM provider.
 
-    def __init__(self, model: str = "gemini-3.5-flash", client=None):
-        self.model = model
+    The historical class name is kept for compatibility; the client comes from
+    ``LLM_PROVIDER`` (Groq by default, Gemini optional). Construction makes no
+    request.
+    """
+
+    def __init__(self, model: str | None = None, client=None):
+        from src.agents.llm_provider import create_llm_client, resolve_model
+
+        self.model = model or resolve_model("BASELINE")
         self._client = client
         if self._client is None:
-            from src.agents.gemini_config import create_gemini_client
-
             # The standalone structured baseline belongs to the analysis stage.
-            self._client = create_gemini_client("ANALYSIS")
+            self._client = create_llm_client("ANALYSIS")
 
     def generate(self, prompt: str, response_schema: type[BaseModel]) -> BaseModel:
-        from google.genai import types
+        from src.agents.output_budget import generation_config
 
         response = self._client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config=types.GenerateContentConfig(
+            config=generation_config(
+                "baseline",
                 temperature=0,
                 response_mime_type="application/json",
                 response_schema=_gemini_compatible_schema(response_schema),

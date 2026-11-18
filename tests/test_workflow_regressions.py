@@ -123,10 +123,11 @@ def test_provider_delay_beyond_bound_fails_closed_without_sleeping(monkeypatch):
     assert result.gap_results == []
 
 
-def test_unsupported_cited_chunk_withholds_hypothesis_even_if_gap_labelled_fully_supported():
+def test_unsupported_cited_chunk_blocks_accepted_gap_even_if_labelled_fully_supported():
     validations = rq.validation()
     # Saved artifacts written before the stricter status rule may still label
-    # such a gap FULLY_SUPPORTED; hypothesis eligibility must not trust that.
+    # such a gap FULLY_SUPPORTED; the strict acceptance rule must not trust
+    # that label: no questions, no hypothesis and no model call.
     item = validations.gap_validations[0].evidence_validations[1]
     validations.gap_validations[0].evidence_validations[1] = item.model_copy(
         update={"status": EvidenceValidationStatus.UNSUPPORTED})
@@ -136,10 +137,8 @@ def test_unsupported_cited_chunk_withholds_hypothesis_even_if_gap_labelled_fully
         rq.critic(), rq.gap_result(), validations,
     )
 
-    output = result.gap_results[0]
-    assert output.hypothesis is None
-    assert output.hypothesis_status is HypothesisStatus.INSUFFICIENT_EVIDENCE
-    assert '"hypothesis_evidence_sufficient": false' in client.calls[0]["contents"]
+    rq.assert_blocked_without_model_call(result, client)
+    assert "is UNSUPPORTED, not SUPPORTED" in result.skipped_gaps[0].reason
 
 
 def test_rejected_gap_is_excluded_and_does_not_block_accepted_gap():
@@ -382,6 +381,8 @@ def test_analysis_and_planner_agents_do_not_require_keys_until_used(monkeypatch)
     from src.agents.paper_analysis_agent import PaperAnalysisAgent
     from src.agents.planner_agent import PlannerAgent
 
+    # Gemini is the optional provider; Groq is the default (see test_groq_provider).
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
     monkeypatch.setattr(gemini_config, "load_dotenv", lambda: None)
     for name in (*gemini_config.GROUP_KEY_ENV.values(),
                  *gemini_config.LEGACY_GROUP_KEY_ENV.values(), "GEMINI_API_KEY"):

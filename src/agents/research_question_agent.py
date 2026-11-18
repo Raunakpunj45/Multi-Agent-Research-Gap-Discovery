@@ -25,7 +25,9 @@ from .evidence_validation_agent import (
     GapSupportStatus,
     GapValidationStatus,
 )
-from .gemini_config import create_gemini_client
+from .gap_acceptance import acceptance_blockers
+from .llm_provider import create_llm_client, resolve_model
+from .output_budget import generation_config
 from .paper_analysis_agent import _is_retryable
 from .research_gap_detection_agent import ResearchGap, ResearchGapDetectionResult
 
@@ -49,6 +51,8 @@ class EvidenceBackedFact(BaseModel):
     validation_status: EvidenceValidationStatus
     source_evidence: EvidenceRef
     validation_limitations: list[str] = Field(default_factory=list)
+    # Legacy topic-specific flags from earlier versions; never populated or
+    # used. Kept only so previously saved artifacts keep their fingerprints.
     mentions_llm: bool | None = None
     mentions_faithfulness: bool | None = None
     supports_physics_informed_ml: bool | None = None
@@ -151,8 +155,8 @@ class ResearchQuestionAgent:
         "IDs. Distinguish the evidence-backed contributions in the input from your "
         "proposed research questions and hypotheses. When citing PARTIALLY_SUPPORTED evidence, "
         "state only the supported part and clearly qualify the rationale. Do not cite a "
-        "chunk for an LLM-specific claim when its validation limitation says the chunk "
-        "does not mention LLMs. Keep each paper's contribution separate in cross-paper "
+        "chunk for a claim that its validation limitations say the chunk does not "
+        "support. Keep each paper's contribution separate in cross-paper "
         "rationales; do not imply one chunk supports another chunk's finding. Do not "
         "present the complete attributed contribution as established. A hypothesis is "
         "a falsifiable, measurable proposal, not an established fact. Include independent "
@@ -164,10 +168,10 @@ class ResearchQuestionAgent:
         "novel. Return structured output only."
     )
 
-    def __init__(self, model: str = "gemini-3.5-flash", client=None,
+    def __init__(self, model: str | None = None, client=None,
                  max_retries: int = 5, base_backoff_seconds: float = 2.0,
                  max_backoff_seconds: float = 60.0):
-        self.model = model
+        self.model = model or resolve_model("QUESTION")
         self._client = client
         self.max_retries = max_retries
         self.base_backoff_seconds = base_backoff_seconds
@@ -177,7 +181,7 @@ class ResearchQuestionAgent:
     @property
     def client(self):
         if self._client is None:
-            self._client = create_gemini_client("QUESTION")
+            self._client = create_llm_client("QUESTION")
         return self._client
 
     def generate_questions(self, critic_result: CriticResult | None,
@@ -295,13 +299,17 @@ class ResearchQuestionAgent:
                 ))
                 errors.append(f"{gap.gap_id}: joint evidence assessment is missing.")
                 continue
-            if (validation.status is GapValidationStatus.UNSUPPORTED
-                    or (validation.joint_assessment is not None
-                        and validation.joint_assessment.status is GapSupportStatus.UNSUPPORTED)):
+            # Second-line enforcement: an ACCEPT never overrides the strict
+            # acceptance rule (no question or hypothesis for a partially
+            # supported or unsupported gap, and no model call).
+            blockers = acceptance_blockers(validation, gap)
+            if blockers:
                 skipped.append(SkippedGap(
                     gap_id=gap.gap_id,
-                    reason="Evidence validation does not support the candidate gap.",
+                    reason=("Evidence validation does not fully support the candidate gap; "
+                            "it fails the strict acceptance rule: " + " ".join(blockers)),
                 ))
+                errors.append(f"{gap.gap_id}: accepted gap fails the strict acceptance rule.")
                 continue
 
             if self._daily_quota_exhausted:
@@ -422,7 +430,7 @@ class ResearchQuestionAgent:
         evidence = [item for item in evidence
                     if (item.paper_id, item.chunk_id) in fact_keys]
         if not labels:
-            return None, "No evidence references passed structured subject validation."
+            return None, "No evidence references have a validated, attributable contribution."
 
         supported_papers = {item.paper_id for item in evidence
                             if item.status is EvidenceValidationStatus.SUPPORTED}
@@ -453,12 +461,8 @@ class ResearchQuestionAgent:
                 if unknown:
                     return None, "A research question contained an invalid or missing evidence label."
                 canonical_labels = [label for label in canonical_labels if label in labels]
-                question_text, canonical_labels = self._narrow_unsupported_question(
-                    item.question, canonical_labels, labels, facts
-                )
-                qualified_labels = self._labels_allowed_by_limitations(
-                    question_text, canonical_labels, labels, facts
-                )
+                question_text = item.question
+                qualified_labels = canonical_labels
                 refs, unknown = self._map_labels(qualified_labels, labels)
                 if unknown:
                     return None, "A research question contained an invalid or missing evidence label."
@@ -466,9 +470,7 @@ class ResearchQuestionAgent:
                     # A label contradicted by that chunk's explicit limitation is
                     # removed. Skip the question if no exact supporting source remains.
                     continue
-                rationale = self._bounded_rationale(
-                    qualified_labels, labels, facts, claim=item.question
-                )
+                rationale = self._bounded_rationale(qualified_labels, labels, facts)
                 if not rationale:
                     continue
                 if self._is_duplicate_question(question_text, refs, normalized_questions):
@@ -500,25 +502,15 @@ class ResearchQuestionAgent:
                     return None, "The hypothesis cited invalid or insufficiently supported evidence."
                 if not refs:
                     hypothesis_limitation = (
-                        "The proposed hypothesis was withheld because its evidence "
-                        "references did not pass structured subject validation."
+                        "The proposed hypothesis was withheld because none of its evidence "
+                        "references is a validated evidence record of this gap."
                     )
                     parsed.hypothesis = None
                 elif not hypothesis_labels_supported:
                     return None, "The hypothesis cited invalid or insufficiently supported evidence."
                 if parsed.hypothesis is not None:
-                    hypothesis_claim = " ".join((
-                    parsed.hypothesis.alternative_hypothesis,
-                    parsed.hypothesis.independent_variable or "",
-                    parsed.hypothesis.dependent_variable or "",
-                    parsed.hypothesis.measurable_outcome or "",
-                    ))
                     rationale = self._bounded_rationale(
-                        canonical_hypothesis_labels, labels, facts,
-                        claim=hypothesis_claim,
-                    )
-                    claim_labels = self._labels_allowed_by_limitations(
-                        hypothesis_claim, canonical_hypothesis_labels, labels, facts
+                        canonical_hypothesis_labels, labels, facts
                     )
                     if len({ref.paper_id for ref in refs}) < 2:
                         hypothesis_limitation = (
@@ -526,10 +518,10 @@ class ResearchQuestionAgent:
                             "does not meet the two-paper minimum."
                         )
                         parsed.hypothesis = None
-                    elif not claim_labels or not rationale:
+                    elif not rationale:
                         hypothesis_limitation = (
-                            "The proposed hypothesis was withheld because the cited chunks do "
-                            "not structurally support its subject claims."
+                            "The proposed hypothesis was withheld because its cited chunks "
+                            "have no validated, attributable contribution."
                         )
                         parsed.hypothesis = None
                     elif not all(isinstance(value, str) and value.strip() for value in (
@@ -610,80 +602,8 @@ class ResearchQuestionAgent:
         return canonical, unknown
 
     @staticmethod
-    def _narrow_unsupported_question(question, evidence_labels, labels, facts):
-        """Reframe known overclaims as questions the cited chunks can motivate."""
-        cited = [labels[label] for label in evidence_labels if label in labels]
-        cited_keys = {(paper, chunk) for paper, chunk, _ in cited}
-        fact_by_key = {
-            (fact.source_evidence.paper_id, chunk): fact
-            for fact in facts for chunk in fact.source_evidence.chunk_ids
-        }
-        cited_facts = [fact_by_key[key] for key in cited_keys if key in fact_by_key]
-        lower = question.casefold()
-
-        # A scope limitation is not evidence for comparative model performance.
-        social_scope_labels = [
-            label for label in evidence_labels
-            if label in labels and any(
-                fact.source_evidence.paper_id == labels[label][0]
-                and labels[label][1] in fact.source_evidence.chunk_ids
-                and fact.supports_social_science_survey_scope is True
-                for fact in facts
-            )
-        ]
-        social_natural_comparison = (
-            bool(re.search(r"social[- ]science", lower))
-            and bool(re.search(r"natural[- ]science", lower))
-            and re.search(r"performance|effectiveness|outcomes?", lower)
-            and re.search(r"compar(?:e|es|ed|ison)|versus|\bvs\b|between", lower)
-        )
-        if social_natural_comparison:
-            if social_scope_labels:
-                return (
-                    "How might future surveys characterize LLM applications in social-science "
-                    "research that this survey leaves for future work?",
-                    social_scope_labels,
-                )
-            return question, []
-
-        # When a single source calls for advances in both areas, frame the
-        # combination as a proposed research direction rather than an established
-        # framework or demonstrated effect.
-        joint_physics_causality = any(
-            fact.supports_physics_informed_ml is True
-            and fact.supports_causal_reasoning is True
-            for fact in cited_facts
-        )
-        mentions_both = (
-            bool(ResearchQuestionAgent._claim_subjects(question).count(
-                "supports_physics_informed_ml"
-            ))
-            and "supports_causal_reasoning" in ResearchQuestionAgent._claim_subjects(question)
-        )
-        presupposes_combination = bool(re.search(
-            r"\b(?:effectively\s+)?(?:combin(?:e|es|ed|ing)|integrat(?:e|es|ed|ing)|frameworks?\s+that\s+combine)\b",
-            lower,
-        ))
-        if joint_physics_causality and mentions_both and presupposes_combination:
-            return (
-                "How might physics-infused machine learning and causal reasoning be jointly "
-                "investigated to advance AI for Science?",
-                evidence_labels,
-            )
-        return question, evidence_labels
-
-    @staticmethod
     def _question_tokens(question):
         text = question.casefold()
-        replacements = (
-            (r"physics[- ](?:informed|infused)", " physics_informed "),
-            (r"causal reasoning", " causal_reasoning "),
-            (r"scientific (?:discovery|workflows?)", " scientific_work "),
-            (r"llm[- ]assisted", " llm_assisted "),
-            (r"ai[- ]driven", " ai_driven "),
-        )
-        for pattern, replacement in replacements:
-            text = re.sub(pattern, replacement, text)
         stopwords = {
             "how", "what", "which", "where", "when", "why", "who", "might",
             "could", "would", "can", "should", "the", "a", "an", "of", "in",
@@ -717,55 +637,6 @@ class ResearchQuestionAgent:
             if union and len(current_tokens & old_tokens) / len(union) >= 0.35:
                 return True
         return False
-
-    @staticmethod
-    def _claim_subjects(claim):
-        patterns = {
-            "mentions_llm": r"\bllms?\b|large language models?",
-            "mentions_faithfulness": r"faithful(?:ness)?|self[- ]?explanations?",
-            "supports_physics_informed_ml": r"physics[- ]informed|physics[- ]infused|physical constraints?",
-            "supports_causal_reasoning": r"causal reasoning|causal methods?|causality",
-            "supports_domain_knowledge_injection": r"domain knowledge|knowledge injection",
-            "supports_social_science_survey_scope": r"social[- ]science|survey scope|survey coverage",
-            "supports_cross_disciplinary_transferability": r"cross[- ]disciplin|transfer(?:ability| across)",
-            "supports_peer_review_quality_assessment": r"peer review|research quality",
-            "supports_novelty_assessment": r"novelty|novel contribution",
-            "supports_critique_homogenization": r"homogen(?:ization|isation|ized|ised)|similar critiques",
-            "supports_deficiency_identification": r"deficienc(?:y|ies)|methodological flaws",
-            "supports_scientific_claim_critique": r"scientific claims?|claim critique",
-        }
-        return [name for name, pattern in patterns.items()
-                if re.search(pattern, claim, re.IGNORECASE)]
-
-    @staticmethod
-    def _labels_allowed_by_limitations(claim, evidence_labels, labels, facts):
-        """Require structured subject support for every named subject in a claim."""
-        fact_by_source = {
-            (fact.source_evidence.paper_id, chunk): fact
-            for fact in facts
-            for chunk in fact.source_evidence.chunk_ids
-        }
-        subjects = ResearchQuestionAgent._claim_subjects(claim)
-        allowed = [label for label in evidence_labels if label in labels]
-        cited_facts = {}
-        for label in allowed:
-            paper, chunk, _ = labels[label]
-            fact = fact_by_source.get((paper, chunk))
-            if fact:
-                cited_facts[label] = fact
-        relevant = set(allowed)
-        for subject in subjects:
-            supporting = {label for label, fact in cited_facts.items()
-                          if getattr(fact, subject, None) is True}
-            if not supporting:
-                return []
-        if subjects:
-            relevant = {label for label in relevant
-                        if label in cited_facts and any(
-                            getattr(cited_facts[label], subject, None) is True
-                            for subject in subjects
-                        )}
-        return [label for label in allowed if label in relevant]
 
     @staticmethod
     def _prefixed(prefix, text):
@@ -820,17 +691,9 @@ class ResearchQuestionAgent:
             if not isinstance(contribution, str) or not contribution.strip():
                 continue
             contribution = contribution.strip()
-            subject_fields = ResearchQuestionAgent._claim_subjects(contribution)
-            if any((finding.get(field, getattr(item, field, None)) is not True)
-                   for field in subject_fields):
-                continue
             limitations = ResearchQuestionAgent._clean_limitations(
                 finding.get("limitations")
             )
-            if any(ResearchQuestionAgent._limitation_conflicts_with_subject(
-                limitation, subject
-            ) for limitation in limitations for subject in subject_fields):
-                continue
             _, status = label_by_key[key]
             fact = EvidenceBackedFact(
                 statement=ResearchQuestionAgent._clean_internal_labels(contribution),
@@ -838,18 +701,6 @@ class ResearchQuestionAgent:
                 source_evidence=EvidenceRef(paper_id=item.paper_id,
                                             chunk_ids=[item.chunk_id]),
                 validation_limitations=limitations,
-                **{name: finding.get(name, getattr(item, name, None))
-                   for name in (
-                       "mentions_llm", "mentions_faithfulness",
-                       "supports_physics_informed_ml", "supports_causal_reasoning",
-                       "supports_domain_knowledge_injection",
-                       "supports_social_science_survey_scope",
-                       "supports_cross_disciplinary_transferability",
-                       "supports_peer_review_quality_assessment",
-                       "supports_novelty_assessment", "supports_critique_homogenization",
-                       "supports_deficiency_identification",
-                       "supports_scientific_claim_critique",
-                   )},
             )
             # Retain each chunk independently: validation status/limitations are
             # chunk-specific and must never be pooled into a stronger assertion.
@@ -857,7 +708,7 @@ class ResearchQuestionAgent:
         return facts
 
     @staticmethod
-    def _bounded_rationale(evidence_labels, labels, facts, claim=""):
+    def _bounded_rationale(evidence_labels, labels, facts):
         """Construct rationale only from the exact cited chunk records."""
         by_source = {(fact.source_evidence.paper_id, chunk): fact
                      for fact in facts for chunk in fact.source_evidence.chunk_ids}
@@ -882,18 +733,6 @@ class ResearchQuestionAgent:
         if not parts:
             return ""
         rationale = "Evidence motivating this question: " + " ".join(parts)
-        if re.search(r"\b(?:rubrics?|prompts?|prompting|knowledge bases?|interventions?)\b",
-                     claim, re.IGNORECASE):
-            rationale += (
-                " Any named intervention is a proposed direction to test, not a "
-                "finding established by these sources."
-            )
-        if ("supports_physics_informed_ml" in ResearchQuestionAgent._claim_subjects(claim)
-                and "mentions_faithfulness" in ResearchQuestionAgent._claim_subjects(claim)):
-            rationale += (
-                " The combined physics-informed and faithfulness direction is proposed "
-                "for study; neither cited contribution establishes the combined method's effect."
-            )
         return rationale
 
     @staticmethod
@@ -909,29 +748,6 @@ class ResearchQuestionAgent:
                     cleaned, re.IGNORECASE):
             return []
         return [ResearchQuestionAgent._clean_internal_labels(cleaned)]
-
-    @staticmethod
-    def _limitation_conflicts_with_subject(limitation, subject):
-        subject_terms = {
-            "mentions_llm": r"LLMs?|large language models?",
-            "mentions_faithfulness": r"faithful(?:ness)?|self[- ]?explanations?",
-            "supports_physics_informed_ml": r"physics[- ]informed|physics[- ]infused|physical constraints?",
-            "supports_causal_reasoning": r"causal(?: reasoning| methods?)?|causality",
-            "supports_domain_knowledge_injection": r"domain knowledge|knowledge injection",
-            "supports_social_science_survey_scope": r"social[- ]science|survey scope|survey coverage",
-            "supports_cross_disciplinary_transferability": r"cross[- ]disciplin|transfer(?:ability)?",
-            "supports_peer_review_quality_assessment": r"peer review|research quality",
-            "supports_novelty_assessment": r"novelty|novel contribution",
-            "supports_critique_homogenization": r"homogen|similar critiques",
-            "supports_deficiency_identification": r"deficienc(?:y|ies)|methodological flaws",
-            "supports_scientific_claim_critique": r"scientific claims?|claim critique",
-        }
-        negation = r"(?:does not|doesn't|did not|didn't|not|never|without|lacks?|no evidence (?:of|for|about)|no discussion of|not addressed|not discussed|fails to)"
-        return bool(re.search(
-            rf"{negation}.{{0,100}}(?:{subject_terms[subject]})|"
-            rf"(?:{subject_terms[subject]}).{{0,100}}{negation}",
-            limitation, re.IGNORECASE,
-        ))
 
     def _build_contents(self, gap, validation, evidence, labels, hypothesis_sufficient):
         records = []
@@ -955,20 +771,6 @@ class ResearchQuestionAgent:
                 "supported_contribution": (finding.get("supported_contribution")
                                            if isinstance(finding, dict) else None),
                 "validation_limitations": limitations,
-                "subject_support": ({
-                    name: finding.get(name, getattr(item, name, None))
-                    for name in (
-                        "mentions_llm", "mentions_faithfulness",
-                        "supports_physics_informed_ml", "supports_causal_reasoning",
-                        "supports_domain_knowledge_injection",
-                        "supports_social_science_survey_scope",
-                        "supports_cross_disciplinary_transferability",
-                        "supports_peer_review_quality_assessment",
-                        "supports_novelty_assessment", "supports_critique_homogenization",
-                        "supports_deficiency_identification",
-                        "supports_scientific_claim_critique",
-                    )
-                } if isinstance(finding, dict) else {}),
                 "claim_evidence_alignment": item.claim_evidence_alignment,
                 "evidence_summary_accuracy": item.evidence_summary_accuracy,
             })
@@ -1018,7 +820,8 @@ class ResearchQuestionAgent:
                 response = self.client.models.generate_content(
                     model=self.model,
                     contents=contents,
-                    config=types.GenerateContentConfig(
+                    config=generation_config(
+                        "research_questions",
                         system_instruction=self.SYSTEM_INSTRUCTION,
                         response_mime_type="application/json",
                         response_schema=_LLMQuestionSet,

@@ -35,6 +35,7 @@ from src.agents.artifact_provenance import (
     require_fingerprint,
     require_recorded_fingerprint,
 )
+from src.agents.gap_acceptance import acceptance_blockers
 from src.workflow.langgraph_app import _questions_evidence_eligible
 from experiments.run_langgraph import (
     _evaluation_artifact_path, _lineage_entry, _model_fingerprint,
@@ -103,15 +104,12 @@ def _targeted_gap_inputs(artifact_path: Path, gap_id: str):
     if (review.review_status is not CriticReviewStatus.COMPLETE
             or review.decision is not CriticDecision.ACCEPT):
         raise ValueError(f"{gap_id} does not have a complete Critic ACCEPT decision.")
-    if (checked.status is GapValidationStatus.VALIDATION_INCOMPLETE
-            or checked.joint_assessment is None
-            or checked.status is GapValidationStatus.UNSUPPORTED
-            or checked.joint_assessment.status is GapSupportStatus.UNSUPPORTED
-            or not any(item.status in (
-                EvidenceValidationStatus.SUPPORTED,
-                EvidenceValidationStatus.PARTIALLY_SUPPORTED,
-            ) for item in checked.evidence_validations)):
-        raise ValueError(f"{gap_id} is not eligible for question generation under evidence validation.")
+    blockers = acceptance_blockers(checked, gap)
+    if checked.status is GapValidationStatus.VALIDATION_INCOMPLETE or blockers:
+        raise ValueError(
+            f"{gap_id} is not eligible for question generation under evidence validation"
+            + (f" (strict acceptance rule: {' '.join(blockers)})" if blockers else "") + "."
+        )
     if not _questions_evidence_eligible(
             gaps.model_copy(update={"gaps": [gap]}),
             validation.model_copy(update={"gap_validations": [checked]})):
